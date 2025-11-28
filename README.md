@@ -18,5 +18,18 @@ View your app in AI Studio: https://ai.studio/apps/drive/1L5pyihIVBSfX_naOGK1crG
 2. Create a `.env.local` based on `.env.example` and set the `VITE_GEMINI_API_KEY` in it to your Gemini API key (or `GEMINI_API_KEY` — Vite config maps both).
     Optionally set `VITE_API_URL` to your backend URL (defaults to `http://localhost:5000/api`). If running the backend on localhost, prefer `http://` (not `https://`) unless your backend is serving HTTPS.
    Also make sure the backend server is running (e.g., `node server.js` from the backend folder) and CORS is configured if needed. If the backend runs on HTTP (common in local dev), ensure `VITE_API_URL` uses `http://`.
+
+Public endpoints
+----------------
+This project exposes a set of public/unprotected endpoints for read-only data consumed by the public landing page. These are mounted at `/api/public` on the backend and are used by the front-end to display public content without requiring authentication.
+
+Examples:
+- `GET http://localhost:5000/api/public/events`
+- `GET http://localhost:5000/api/public/announcements`
+- `GET http://localhost:5000/api/public/news`
+- `GET http://localhost:5000/api/public/officials`
+- `GET http://localhost:5000/api/public/settings`
+
+The frontend uses those endpoints by default (Landing/Help), while the admin/private routes remain under their existing paths and continue to require authentication.
 3. Run the app:
    `npm run dev`

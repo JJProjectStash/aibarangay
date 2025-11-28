@@ -14,7 +14,7 @@ const Help = () => {
     const fetchData = async () => {
         const [faqsData, settingsData] = await Promise.all([
             api.getFAQs(),
-            api.getSiteSettings()
+            api.getPublicSiteSettings()
         ]);
         setFaqs(faqsData);
         setSettings(settingsData);

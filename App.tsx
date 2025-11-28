@@ -59,7 +59,25 @@ export default function App() {
   const [recentNotifs, setRecentNotifs] = useState<Notification[]>([]);
 
   useEffect(() => {
-    api.getSiteSettings().then(setSiteSettings);
+    (async () => {
+      try {
+        const settings = await api.getPublicSiteSettings();
+        setSiteSettings(settings);
+      } catch (err) {
+        console.warn('Could not load admin site settings (may be admin-only):', err);
+        // Use a lightweight/default fallback so UI has a name and logo can be absent.
+        setSiteSettings({
+          id: 'default',
+          barangayName: 'iBarangay',
+          logoUrl: '',
+          contactEmail: '',
+          contactPhone: '',
+          address: '',
+          facebookUrl: '',
+          twitterUrl: '',
+        });
+      }
+    })();
   }, []);
 
   useEffect(() => {

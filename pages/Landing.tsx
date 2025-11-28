@@ -17,7 +17,8 @@ const Landing: React.FC<LandingProps> = ({ onLogin, onSignup, onNavigate }) => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [officials, setOfficials] = useState<Official[]>([]);
-  const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [requiresSignIn, setRequiresSignIn] = useState(false);
 
   // Modals for Footer/News
   const [activeModal, setActiveModal] = useState<'privacy' | 'terms' | null>(null);
@@ -25,16 +26,33 @@ const Landing: React.FC<LandingProps> = ({ onLogin, onSignup, onNavigate }) => {
 
   useEffect(() => {
       const fetchData = async () => {
-          const [eventsData, announcementsData, newsData, officialsData] = await Promise.all([
-              api.getEvents(),
-              api.getAnnouncements(),
-              api.getNews(),
-              api.getOfficials()
+          const results = await Promise.allSettled([
+                  api.getPublicEvents(),
+                  api.getPublicAnnouncements(),
+                  api.getPublicNews(),
+                  api.getPublicOfficials()
           ]);
-          setEvents(eventsData); 
-          setAnnouncements(announcementsData.filter(a => a.isPublished).slice(0, 3)); 
-          setNews(newsData.slice(0, 3));
-          setOfficials(officialsData);
+
+          // Results order matches the original Promise.all
+          const [eventsRes, announcementsRes, newsRes, officialsRes] = results;
+
+          setEvents(eventsRes.status === 'fulfilled' ? eventsRes.value as Event[] : []);
+          setAnnouncements(announcementsRes.status === 'fulfilled' ? (announcementsRes.value as Announcement[]).filter(a => a.isPublished).slice(0,3) : []);
+          setNews(newsRes.status === 'fulfilled' ? (newsRes.value as NewsItem[]).slice(0,3) : []);
+          setOfficials(officialsRes.status === 'fulfilled' ? officialsRes.value as Official[] : []);
+
+                    const rejected = results.filter((r) => r.status === 'rejected');
+                    if (rejected.length) {
+                        console.warn('Some landing fetches failed:', rejected);
+                        rejected.forEach((r) => {
+                            const reason = (r as PromiseRejectedResult).reason;
+                            if (reason?.status === 401) {
+                                setRequiresSignIn(true);
+                                console.info('A landing endpoint is returning 401: it may require authentication.');
+                            }
+                        });
+                    }
+
           setLoading(false);
       };
       fetchData();
@@ -57,7 +75,13 @@ const Landing: React.FC<LandingProps> = ({ onLogin, onSignup, onNavigate }) => {
       </nav>
 
       {/* Hero */}
-      <div className="relative overflow-hidden bg-primary-900 pt-20 pb-32 text-white">
+            <div className="relative overflow-hidden bg-primary-900 pt-20 pb-32 text-white">
+                {requiresSignIn && (
+                    <div className="absolute top-4 right-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-3 rounded shadow z-50">
+                        <div className="text-sm font-medium">Some content on this page requires authentication.</div>
+                        <div className="text-xs text-yellow-600">Sign in to view protected content or make the endpoint public on the backend for non-authenticated users.</div>
+                    </div>
+                )}
           <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-primary-900 to-teal-900" />
           <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           

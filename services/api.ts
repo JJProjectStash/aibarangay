@@ -41,12 +41,25 @@ const setToken = (token: string) => localStorage.setItem("token", token);
 // Helper to remove auth token
 const removeToken = () => localStorage.removeItem("token");
 
+// Simple ApiError type so callers can examine response status
+class ApiError extends Error {
+  status?: number;
+  constructor(message?: string, status?: number) {
+    super(message);
+    this.status = status;
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
 // Helper for API requests
-const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+const apiRequest = async (
+  endpoint: string,
+  options: RequestInit & { skipAuth?: boolean } = {}
+) => {
   const token = getToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(!options.skipAuth && token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
 
@@ -63,10 +76,36 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   }
 
   if (!response.ok) {
+    // If unauthorized and we sent a token, retry once without the token in case it is invalid/expired
+    if (response.status === 401 && token) {
+      console.warn(`Authorization failure for ${url}: removing token and retrying fetch without it.`);
+      // Remove stored token and retry once
+      removeToken();
+      const retryHeaders: HeadersInit = {
+        "Content-Type": "application/json",
+        ...options.headers,
+      };
+
+      try {
+        const retryResp = await fetch(url, {
+          ...options,
+          headers: retryHeaders,
+        });
+        if (!retryResp.ok) {
+          const error = await retryResp.json().catch(() => ({ message: "Request failed" }));
+          throw new ApiError(error.message || "Request failed", retryResp.status);
+        }
+        return retryResp.json();
+      } catch (err) {
+        console.error(`Retry without token failed for ${url}:`, err);
+        const error = await response.json().catch(() => ({ message: "Request failed" }));
+        throw new ApiError(error.message || "Request failed", response.status);
+      }
+    }
     const error = await response
       .json()
       .catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || "Request failed");
+    throw new ApiError(error.message || "Request failed", response.status);
   }
 
   return response.json();
@@ -337,6 +376,26 @@ class ApiService {
     }));
   }
 
+  // Public Events (no auth)
+  async getPublicEvents(): Promise<Event[]> {
+    const data = await apiRequest("/public/events", { skipAuth: true });
+    return data.map((item: any) => ({
+      id: item._id,
+      title: item.title,
+      description: item.description,
+      eventDate: item.eventDate,
+      location: item.location,
+      organizerId: item.organizerId,
+      maxAttendees: item.maxAttendees,
+      currentAttendees: item.currentAttendees,
+      category: item.category,
+      imageUrl: item.imageUrl,
+      status: item.status,
+      // Public events do not include registered info for the current user
+      isRegistered: item.isRegistered ?? false,
+    }));
+  }
+
   async createEvent(
     event: Omit<Event, "id" | "currentAttendees" | "status">
   ): Promise<void> {
@@ -375,6 +434,23 @@ class ApiService {
     }));
   }
 
+  // Public Announcements (unauthenticated)
+  async getPublicAnnouncements(): Promise<Announcement[]> {
+    const data = await apiRequest("/public/announcements", { skipAuth: true });
+    return data.map((item: any) => ({
+      id: item._id,
+      title: item.title,
+      content: item.content,
+      category: item.category,
+      priority: item.priority,
+      isPublished: item.isPublished,
+      isPinned: item.isPinned,
+      views: item.views,
+      createdAt: item.createdAt,
+      author: item.author,
+    }));
+  }
+
   async toggleAnnouncementPin(id: string): Promise<void> {
     await apiRequest(`/announcements/${id}/pin`, {
       method: "PUT",
@@ -384,6 +460,20 @@ class ApiService {
   // News
   async getNews(): Promise<NewsItem[]> {
     const data = await apiRequest("/news");
+    return data.map((item: any) => ({
+      id: item._id,
+      title: item.title,
+      summary: item.summary,
+      content: item.content,
+      imageUrl: item.imageUrl,
+      publishedAt: item.createdAt,
+      author: item.author,
+    }));
+  }
+
+  // Public news (unauthenticated)
+  async getPublicNews(): Promise<NewsItem[]> {
+    const data = await apiRequest("/public/news", { skipAuth: true });
     return data.map((item: any) => ({
       id: item._id,
       title: item.title,
@@ -436,6 +526,18 @@ class ApiService {
   // Officials
   async getOfficials(): Promise<Official[]> {
     const data = await apiRequest("/content/officials");
+    return data.map((item: any) => ({
+      id: item._id,
+      name: item.name,
+      position: item.position,
+      imageUrl: item.imageUrl,
+      contact: item.contact,
+    }));
+  }
+
+  // Public officials list
+  async getPublicOfficials(): Promise<Official[]> {
+    const data = await apiRequest("/public/officials", { skipAuth: true });
     return data.map((item: any) => ({
       id: item._id,
       name: item.name,
@@ -502,6 +604,21 @@ class ApiService {
       method: "PUT",
       body: JSON.stringify(settings),
     });
+  }
+
+  // Public site settings for unauthenticated UI
+  async getPublicSiteSettings(): Promise<SiteSettings> {
+    const data = await apiRequest('/public/settings', { skipAuth: true });
+    return {
+      id: data._id,
+      barangayName: data.barangayName,
+      logoUrl: data.logoUrl,
+      contactEmail: data.contactEmail,
+      contactPhone: data.contactPhone,
+      address: data.address,
+      facebookUrl: data.facebookUrl,
+      twitterUrl: data.twitterUrl,
+    };
   }
 
   // Users (Admin)
