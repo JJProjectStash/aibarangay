@@ -71,7 +71,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("landing");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
-  const { toasts, showToast, removeToast } = useToast();
+  const { showToast } = useToast();
 
   // Notification State
   const [unreadCount, setUnreadCount] = useState(0);
@@ -209,7 +209,7 @@ export default function App() {
       className="min-h-screen bg-gray-50 flex"
       onClick={() => setShowNotifDropdown(false)}
     >
-      <ToastContainer toasts={toasts} onClose={removeToast} />
+      {/* ToastContainer is rendered by ToastProvider at the app root */}
 
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-gray-200 fixed h-full z-10 shadow-sm">

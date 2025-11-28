@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { User as UserIcon, MapPin, Phone, Mail, Save, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, FileUpload, Badge } from '../components/UI';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 import { User } from '../types';
 
 interface ProfileProps {
@@ -36,12 +37,13 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const { showToast } = useToast();
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
       // Basic validation check
       if(!formData.firstName.trim() || !formData.lastName.trim()) {
-          alert("First and Last name are required.");
+          showToast('Validation', 'First and Last name are required.', 'error');
           return;
       }
 
@@ -58,7 +60,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
       await api.updateProfile(updatedUser);
       onUpdate(updatedUser);
       setLoading(false);
-      alert('Profile updated successfully');
+      showToast('Success', 'Profile updated successfully', 'success');
   };
 
   return (

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pin, Megaphone, Clock } from 'lucide-react';
 import { Button, Card, CardContent, Badge } from '../components/UI';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 import { Announcement, User } from '../types';
 
 interface AnnouncementProps {
@@ -22,11 +23,14 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
     fetch();
   }, []);
 
-  const togglePin = async (id: string) => {
-      await api.toggleAnnouncementPin(id);
-      const data = await api.getAnnouncements();
-      setAnnouncements(data.sort((a,b) => (a.isPinned === b.isPinned ? 0 : a.isPinned ? -1 : 1)));
-  }
+    const { showToast } = useToast();
+      const togglePin = async (id: string) => {
+        await api.toggleAnnouncementPin(id);
+        const data = await api.getAnnouncements();
+        setAnnouncements(data.sort((a,b) => (a.isPinned === b.isPinned ? 0 : a.isPinned ? -1 : 1)));
+        const updated = data.find(a => a.id === id);
+        showToast('Success', updated?.isPinned ? 'Announcement pinned' : 'Announcement unpinned', 'success');
+      }
 
   return (
     <div className="space-y-6">

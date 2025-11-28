@@ -12,6 +12,7 @@ import {
   FileUpload,
 } from "../components/UI";
 import { api } from "../services/api";
+import { useToast } from '../components/Toast';
 
 interface AdminConfigProps {
   onSettingsUpdate?: () => void;
@@ -33,12 +34,13 @@ const AdminConfig: React.FC<AdminConfigProps> = ({ onSettingsUpdate }) => {
     api.getSiteSettings().then(setSiteSettings);
   }, []);
 
+  const { showToast } = useToast();
   const handleSave = async () => {
     await api.updateSiteSettings(siteSettings as any);
     if (onSettingsUpdate) {
       onSettingsUpdate();
     }
-    alert("Configuration saved successfully!");
+    showToast('Success', 'Configuration saved successfully!', 'success');
   };
 
   return (

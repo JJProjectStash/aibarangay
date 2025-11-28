@@ -35,6 +35,7 @@ import {
   Badge,
 } from "../components/UI";
 import { api } from "../services/api";
+import { useToast } from '../components/Toast';
 import { User, Announcement } from "../types";
 
 interface DashboardProps {
@@ -65,6 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     fetchData();
   }, [user]);
 
+  const { showToast } = useToast();
   const handlePrintReport = async () => {
     try {
       setGeneratingPDF(true);
@@ -81,7 +83,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to generate report:", error);
-      alert("Failed to generate report. Please try again.");
+      showToast('Error', 'Failed to generate report. Please try again.', 'error');
     } finally {
       setGeneratingPDF(false);
     }

@@ -78,7 +78,7 @@ export interface ToastContainerProps {
 }
 
 export const ToastContainer: React.FC<ToastContainerProps> = ({
-  toasts,
+  toasts = [],
   onClose,
 }) => {
   return (
@@ -91,8 +91,20 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
 };
 
 // Hook for managing toasts
-export const useToast = () => {
+// Toast context + provider for global use across the app
+type ToastContextValue = {
+  showToast: (title: string, message: string, type?: ToastType, duration?: number) => void;
+  removeToast: (id: string) => void;
+};
+
+const ToastContext = React.createContext<ToastContextValue | undefined>(undefined);
+
+export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = React.useState<ToastProps[]>([]);
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   const showToast = (
     title: string,
@@ -112,13 +124,18 @@ export const useToast = () => {
     setToasts((prev) => [...prev, newToast]);
   };
 
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
+  return (
+    <ToastContext.Provider value={{ showToast, removeToast }}>
+      {children}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+    </ToastContext.Provider>
+  );
+};
 
-  return {
-    toasts,
-    showToast,
-    removeToast,
-  };
+export const useToast = (): ToastContextValue => {
+  const ctx = React.useContext(ToastContext);
+  if (!ctx) {
+    throw new Error('useToast must be used within a ToastProvider');
+  }
+  return ctx;
 };

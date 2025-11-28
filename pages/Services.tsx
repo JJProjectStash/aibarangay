@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Package, Layers, Calendar, AlertTriangle, User as UserIcon, Phone, MapPin, CheckCircle, Info, MessageSquare } from 'lucide-react';
 import { Button, Card, CardContent, Badge, Input, Label, Select, Modal, Textarea, ConfirmDialog } from '../components/UI';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 import { ServiceRequest, User } from '../types';
 
 interface ServicesProps {
@@ -27,13 +28,14 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvalNote, setApprovalNote] = useState('');
 
-  const [newRequest, setNewRequest] = useState({
+    const [newRequest, setNewRequest] = useState({
     itemName: '',
     itemType: 'Equipment',
     borrowDate: '',
     expectedReturnDate: '',
     purpose: ''
   });
+    const { showToast } = useToast();
 
   const fetchServices = async () => {
     setLoading(true);
@@ -87,6 +89,7 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     setNewRequest({ itemName: '', itemType: 'Equipment', borrowDate: '', expectedReturnDate: '', purpose: '' });
     setErrors({});
     fetchServices();
+        showToast('Success', 'Service request submitted', 'success');
   };
 
   const handleStatusUpdate = async (id: string, status: ServiceRequest['status']) => {
@@ -94,16 +97,17 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     fetchServices();
   };
 
-  const confirmReject = async () => {
+    const confirmReject = async () => {
       if (rejectDialog.id) {
           if (!rejectionReason.trim()) {
-              alert("Please provide a rejection reason.");
+              showToast('Validation', 'Please provide a rejection reason.', 'error');
               return;
           }
           await api.updateServiceStatus(rejectDialog.id, 'rejected', rejectionReason);
           setRejectDialog({ isOpen: false, id: null });
           setRejectionReason('');
           fetchServices();
+          showToast('Success', 'Request rejected', 'success');
       }
   };
 
@@ -113,6 +117,7 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
           setApproveDialog({ isOpen: false, id: null });
           setApprovalNote('');
           fetchServices();
+          showToast('Success', 'Request approved', 'success');
       }
   }
 

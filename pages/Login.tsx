@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Home, Lock, Mail, User, ShieldCheck, Users } from 'lucide-react';
 import { Button, Card, CardContent, Input, Label } from '../components/UI';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 import { User as UserType } from '../types';
 
 interface LoginProps {
@@ -14,6 +15,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const { showToast } = useToast();
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
@@ -28,11 +30,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const user = await api.login(email);
       if (user) {
         onLogin(user);
+        showToast('Welcome', `Welcome back, ${user.firstName}!`, 'success');
       } else {
         setError('User not found. Try the demo accounts below.');
+        showToast('Not Found', 'User not found. Try the demo accounts below.', 'error');
       }
     } catch (err) {
       setError('An connection error occurred. Please try again.');
+      showToast('Error', 'A connection error occurred. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

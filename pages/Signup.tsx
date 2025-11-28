@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button, Card, CardContent, Input, Label } from '../components/UI';
 import { api } from '../services/api';
+import { useToast } from '../components/Toast';
 
 interface SignupProps {
     onBack: () => void;
@@ -54,15 +55,22 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
         }
     };
 
+    const { showToast } = useToast();
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
 
         setLoading(true);
-        // Simulate API delay
-        await api.register(formData);
-        setLoading(false);
-        onSuccess();
+        try {
+            await api.register(formData);
+            showToast('Success', 'Account created successfully. Please check your email for verification.', 'success');
+            onSuccess();
+        } catch (err) {
+            console.error('Signup failed', err);
+            showToast('Error', 'Signup failed. Please try again.', 'error');
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
