@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { X, AlertTriangle, Upload, File, CheckCircle2 } from 'lucide-react';
+import { createPortal } from "react-dom";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -242,7 +243,6 @@ export const Tabs = ({
 export const Skeleton = ({ className }: { className?: string }) => (
   <div className={cn("animate-pulse rounded-lg bg-gray-200/80", className)} />
 );
-
 // Modal Component
 export const Modal: React.FC<{
     isOpen: boolean;
@@ -259,8 +259,8 @@ export const Modal: React.FC<{
 }) => {
     if (!isOpen) return null;
     
-    return (
-        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-in fade-in duration-200">
+    return createPortal(
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm animate-in fade-in duration-200">
             <Card className={cn("w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200", className)}>
                 <button 
                     onClick={onClose}
@@ -277,7 +277,8 @@ export const Modal: React.FC<{
                     {children}
                 </CardContent>
             </Card>
-        </div>
+        </div>,
+        document.body
     );
 };
 

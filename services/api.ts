@@ -18,19 +18,21 @@ const normalizeApiUrl = (raw?: string) => {
   let url = raw || "http://localhost:5000/api";
 
   // If someone used a shorthand like ":5000/api" -> prefix with http://localhost
-  if (url.startsWith(':')) url = `http://localhost${url}`;
+  if (url.startsWith(":")) url = `http://localhost${url}`;
   // If scheme-relative (//localhost:5000) -> use http:
-  if (url.startsWith('//')) url = `http:${url}`;
+  if (url.startsWith("//")) url = `http:${url}`;
   // If no scheme, prefix with http://
   if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
 
   // Remove trailing slash for easier concatenation
-  if (url.endsWith('/')) url = url.slice(0, -1);
+  if (url.endsWith("/")) url = url.slice(0, -1);
 
   return url;
 };
 
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined);
+const API_URL = normalizeApiUrl(
+  import.meta.env.VITE_API_URL as string | undefined
+);
 
 // Helper to get auth token
 const getToken = () => localStorage.getItem("token");
@@ -72,13 +74,15 @@ const apiRequest = async (
     });
   } catch (err) {
     console.error(`Network error requesting ${url}:`, err);
-    throw new Error((err as Error).message || 'Network error');
+    throw new Error((err as Error).message || "Network error");
   }
 
   if (!response.ok) {
     // If unauthorized and we sent a token, retry once without the token in case it is invalid/expired
     if (response.status === 401 && token) {
-      console.warn(`Authorization failure for ${url}: removing token and retrying fetch without it.`);
+      console.warn(
+        `Authorization failure for ${url}: removing token and retrying fetch without it.`
+      );
       // Remove stored token and retry once
       removeToken();
       const retryHeaders: HeadersInit = {
@@ -92,13 +96,20 @@ const apiRequest = async (
           headers: retryHeaders,
         });
         if (!retryResp.ok) {
-          const error = await retryResp.json().catch(() => ({ message: "Request failed" }));
-          throw new ApiError(error.message || "Request failed", retryResp.status);
+          const error = await retryResp
+            .json()
+            .catch(() => ({ message: "Request failed" }));
+          throw new ApiError(
+            error.message || "Request failed",
+            retryResp.status
+          );
         }
         return retryResp.json();
       } catch (err) {
         console.error(`Retry without token failed for ${url}:`, err);
-        const error = await response.json().catch(() => ({ message: "Request failed" }));
+        const error = await response
+          .json()
+          .catch(() => ({ message: "Request failed" }));
         throw new ApiError(error.message || "Request failed", response.status);
       }
     }
@@ -417,6 +428,21 @@ class ApiService {
     });
   }
 
+  async getEventRegisteredUsers(eventId: string): Promise<User[]> {
+    const data = await apiRequest(`/events/${eventId}/registered`);
+    return data.map((item: any) => ({
+      id: item._id,
+      firstName: item.firstName,
+      lastName: item.lastName,
+      email: item.email,
+      role: item.role,
+      avatar: item.avatar,
+      address: item.address,
+      phoneNumber: item.phoneNumber,
+      isVerified: item.isVerified,
+    }));
+  }
+
   // Announcements
   async getAnnouncements(): Promise<Announcement[]> {
     const data = await apiRequest("/announcements");
@@ -608,7 +634,7 @@ class ApiService {
 
   // Public site settings for unauthenticated UI
   async getPublicSiteSettings(): Promise<SiteSettings> {
-    const data = await apiRequest('/public/settings', { skipAuth: true });
+    const data = await apiRequest("/public/settings", { skipAuth: true });
     return {
       id: data._id,
       barangayName: data.barangayName,
@@ -687,6 +713,23 @@ class ApiService {
   // Real-time Simulation (kept for compatibility, but won't work with real backend)
   simulateIncomingNotification(userId: string): Notification | null {
     return null;
+  }
+
+  // Generate PDF Report
+  async generateReport(): Promise<Blob> {
+    const token = getToken();
+    const response = await fetch(`${API_URL}/stats/report`, {
+      method: "GET",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to generate report");
+    }
+
+    return response.blob();
   }
 }
 
