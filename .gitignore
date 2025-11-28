@@ -1,3 +1,9 @@
+# -----------------------------
+# aibarangay project .gitignore
+# Final, consolidated rules for Node/TypeScript/Vite React projects
+# UNIQUE-ID: v1
+# -----------------------------
+
 # Logs
 logs
 *.log
@@ -7,18 +13,85 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Node / package manager
+node_modules/
+.pnp/
+.pnp.js
 
-# Editor directories and files
+# Build outputs / bundler caches
+dist/
+dist-ssr/
+build/
+out/
+.parcel-cache/
+.vite/
+/.vite
+/.cache
+
+# Typescript incremental build cache
+*.tsbuildinfo
+
+# Tests (coverage and runner artifacts)
+coverage/
+.nyc_output/
+coverage-final.json
+jest-junit.xml
+jest.retry-cache
+cypress/videos/
+cypress/screenshots/
+cypress/.cache/
+playwright-report/
+
+# Environment
+.env
+.env.*.local
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# Editor/IDE
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.iml
+.history/
+
+# Lint cache
+.eslintcache
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+Icon?
+
+# Misc files to ignore
+pids
+*.pid
+*.seed
+*.pid.lock
+*.tmp
+*.temp
+*.bak
+*.orig
+*.tgz
+secrets.json
+*.key
+*.pem
+Dockerfile.dev
+docker-compose.override.yml
+storybook-static/
+.cache-loader
+.cache/
+.turbo
+
+# Keep lockfiles (important): do NOT ignore package-lock.json or yarn.lock
+
+# End of file

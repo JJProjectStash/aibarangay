@@ -1,333 +1,575 @@
+import {
+  Complaint,
+  ServiceRequest,
+  User,
+  Event,
+  Announcement,
+  Notification,
+  AuditLog,
+  NewsItem,
+  Hotline,
+  Official,
+  FAQ,
+  SiteSettings,
+  Comment,
+} from "../types";
 
-import { Complaint, ServiceRequest, User, Event, Announcement, Notification, AuditLog, NewsItem, Hotline, Official, FAQ, SiteSettings, Comment } from '../types';
-import { MOCK_COMPLAINTS, MOCK_SERVICES, MOCK_USERS, MOCK_EVENTS, MOCK_ANNOUNCEMENTS, MOCK_NOTIFICATIONS, MOCK_AUDIT_LOGS, MOCK_NEWS, MOCK_HOTLINES, MOCK_OFFICIALS, MOCK_FAQS, MOCK_SITE_SETTINGS } from '../mockData';
+const normalizeApiUrl = (raw?: string) => {
+  let url = raw || "http://localhost:5000/api";
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  // If someone used a shorthand like ":5000/api" -> prefix with http://localhost
+  if (url.startsWith(':')) url = `http://localhost${url}`;
+  // If scheme-relative (//localhost:5000) -> use http:
+  if (url.startsWith('//')) url = `http:${url}`;
+  // If no scheme, prefix with http://
+  if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
 
-class ApiService {
-  private complaints: Complaint[] = [...MOCK_COMPLAINTS];
-  private services: ServiceRequest[] = [...MOCK_SERVICES];
-  private events: Event[] = [...MOCK_EVENTS];
-  private announcements: Announcement[] = [...MOCK_ANNOUNCEMENTS];
-  private notifications: Notification[] = [...MOCK_NOTIFICATIONS];
-  private users: User[] = [...MOCK_USERS];
-  private auditLogs: AuditLog[] = [...MOCK_AUDIT_LOGS];
-  private news: NewsItem[] = [...MOCK_NEWS];
-  private hotlines: Hotline[] = [...MOCK_HOTLINES];
-  private officials: Official[] = [...MOCK_OFFICIALS];
-  private faqs: FAQ[] = [...MOCK_FAQS];
-  private siteSettings: SiteSettings = { ...MOCK_SITE_SETTINGS };
+  // Remove trailing slash for easier concatenation
+  if (url.endsWith('/')) url = url.slice(0, -1);
 
-  // Auth
-  async login(email: string): Promise<User | null> {
-    await delay(800);
-    const user = this.users.find(u => u.email === email);
-    return user || null;
+  return url;
+};
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined);
+
+// Helper to get auth token
+const getToken = () => localStorage.getItem("token");
+
+// Helper to set auth token
+const setToken = (token: string) => localStorage.setItem("token", token);
+
+// Helper to remove auth token
+const removeToken = () => localStorage.removeItem("token");
+
+// Helper for API requests
+const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const token = getToken();
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  const url = `${API_URL}${endpoint}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    console.error(`Network error requesting ${url}:`, err);
+    throw new Error((err as Error).message || 'Network error');
   }
 
-  async register(data: any): Promise<User> {
-    await delay(1000);
-    const newUser: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...data,
-      role: 'resident',
-      avatar: `https://i.pravatar.cc/150?u=${Math.random()}`,
-      isVerified: false
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Request failed" }));
+    throw new Error(error.message || "Request failed");
+  }
+
+  return response.json();
+};
+
+class ApiService {
+  // Auth
+  async login(email: string, password?: string): Promise<User | null> {
+    try {
+      const data = await apiRequest("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (data.token) {
+        setToken(data.token);
+      }
+
+      return {
+        id: data._id,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        role: data.role,
+        avatar: data.avatar,
+        address: data.address,
+        phoneNumber: data.phoneNumber,
+        isVerified: data.isVerified,
+      };
+    } catch (error) {
+      console.error("Login error:", error);
+      return null;
+    }
+  }
+
+  async register(userData: any): Promise<User> {
+    const data = await apiRequest("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+
+    if (data.token) {
+      setToken(data.token);
+    }
+
+    return {
+      id: data._id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      role: data.role,
+      avatar: data.avatar,
+      address: data.address,
+      phoneNumber: data.phoneNumber,
+      isVerified: data.isVerified,
     };
-    this.users.push(newUser);
-    return newUser;
   }
 
   async updateProfile(user: User): Promise<User> {
-    await delay(500);
-    const idx = this.users.findIndex(u => u.id === user.id);
-    if (idx !== -1) {
-        this.users[idx] = user;
-    }
-    return user;
+    const data = await apiRequest("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(user),
+    });
+
+    return {
+      id: data._id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      role: data.role,
+      avatar: data.avatar,
+      address: data.address,
+      phoneNumber: data.phoneNumber,
+      isVerified: data.isVerified,
+    };
   }
 
-  // Dashboard Stats - Role Based
-  async getStats(user: User) {
-    await delay(500);
-    
-    // Admin/Staff View: System-wide stats
-    if (user.role === 'admin' || user.role === 'staff') {
-        return {
-            totalResidents: this.users.filter(u => u.role === 'resident').length,
-            pendingComplaints: this.complaints.filter(c => c.status === 'pending').length,
-            activeServices: this.services.filter(s => ['approved', 'borrowed'].includes(s.status)).length,
-            upcomingEvents: this.events.filter(e => e.status === 'upcoming').length,
-            resolvedComplaints: this.complaints.filter(c => c.status === 'resolved').length
-        };
-    }
+  logout() {
+    removeToken();
+  }
 
-    // Resident View: Personal stats
-    return {
-        myPendingComplaints: this.complaints.filter(c => c.userId === user.id && c.status === 'pending').length,
-        myActiveServices: this.services.filter(s => s.userId === user.id && ['approved', 'borrowed'].includes(s.status)).length,
-        upcomingEvents: this.events.filter(e => e.status === 'upcoming').length,
-        myTotalComplaints: this.complaints.filter(c => c.userId === user.id).length
-    };
+  // Dashboard Stats
+  async getStats(user: User) {
+    return apiRequest("/stats");
   }
 
   // Complaints
   async getComplaints(user: User): Promise<Complaint[]> {
-    await delay(600);
-    if (user.role === 'resident') {
-        return this.complaints.filter(c => c.userId === user.id);
-    }
-    return [...this.complaints];
+    const data = await apiRequest("/complaints");
+    return data.map((item: any) => ({
+      id: item._id,
+      userId: item.userId._id || item.userId,
+      user: item.userId._id
+        ? {
+            id: item.userId._id,
+            firstName: item.userId.firstName,
+            lastName: item.userId.lastName,
+            email: item.userId.email,
+            role: item.userId.role,
+            avatar: item.userId.avatar,
+          }
+        : item.userId,
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      status: item.status,
+      priority: item.priority,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      assignedTo: item.assignedTo,
+      feedback: item.feedback,
+      rating: item.rating,
+      history: item.history,
+      comments: item.comments,
+      attachments: item.attachments,
+    }));
   }
 
-  async createComplaint(complaint: Omit<Complaint, 'id' | 'createdAt' | 'updatedAt' | 'user' | 'comments'>): Promise<Complaint> {
-    await delay(600);
-    const newComplaint: Complaint = {
-      ...complaint,
-      id: Math.random().toString(36).substr(2, 9),
-      user: this.users.find(u => u.id === complaint.userId)!,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      comments: []
+  async createComplaint(
+    complaint: Omit<
+      Complaint,
+      "id" | "createdAt" | "updatedAt" | "user" | "comments"
+    >
+  ): Promise<Complaint> {
+    const data = await apiRequest("/complaints", {
+      method: "POST",
+      body: JSON.stringify(complaint),
+    });
+
+    return {
+      id: data._id,
+      userId: data.userId._id,
+      user: {
+        id: data.userId._id,
+        firstName: data.userId.firstName,
+        lastName: data.userId.lastName,
+        email: data.userId.email,
+        role: data.userId.role,
+        avatar: data.userId.avatar,
+      },
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      status: data.status,
+      priority: data.priority,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      history: data.history,
+      comments: data.comments,
     };
-    this.complaints.unshift(newComplaint);
-    return newComplaint;
   }
 
-  async updateComplaintStatus(id: string, status: Complaint['status']): Promise<void> {
-    await delay(400);
-    const idx = this.complaints.findIndex(c => c.id === id);
-    if (idx !== -1) {
-      this.complaints[idx] = { ...this.complaints[idx], status, updatedAt: new Date().toISOString() };
-    }
+  async updateComplaintStatus(
+    id: string,
+    status: Complaint["status"],
+    note?: string
+  ): Promise<void> {
+    await apiRequest(`/complaints/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status, note }),
+    });
   }
 
-  async addComplaintComment(complaintId: string, comment: Omit<Comment, 'id' | 'timestamp'>): Promise<Comment> {
-    await delay(400);
-    const idx = this.complaints.findIndex(c => c.id === complaintId);
-    const newComment = {
-        ...comment,
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: new Date().toISOString()
+  async addComplaintComment(
+    complaintId: string,
+    comment: Omit<Comment, "id" | "timestamp">
+  ): Promise<Comment> {
+    const data = await apiRequest(`/complaints/${complaintId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(comment),
+    });
+
+    return {
+      id: data._id,
+      userId: data.userId,
+      userName: data.userName,
+      userRole: data.userRole,
+      message: data.message,
+      timestamp: data.timestamp,
     };
-    if (idx !== -1) {
-        this.complaints[idx].comments.push(newComment);
-    }
-    return newComment;
   }
 
   // Services
   async getServices(user: User): Promise<ServiceRequest[]> {
-    await delay(600);
-    if (user.role === 'resident') {
-        return this.services.filter(s => s.userId === user.id);
-    }
-    return [...this.services];
+    const data = await apiRequest("/services");
+    return data.map((item: any) => ({
+      id: item._id,
+      userId: item.userId._id || item.userId,
+      user: item.userId._id
+        ? {
+            id: item.userId._id,
+            firstName: item.userId.firstName,
+            lastName: item.userId.lastName,
+            email: item.userId.email,
+            role: item.userId.role,
+            avatar: item.userId.avatar,
+          }
+        : item.userId,
+      itemName: item.itemName,
+      itemType: item.itemType,
+      borrowDate: item.borrowDate,
+      expectedReturnDate: item.expectedReturnDate,
+      status: item.status,
+      purpose: item.purpose,
+      createdAt: item.createdAt,
+      notes: item.notes,
+      rejectionReason: item.rejectionReason,
+      approvalNote: item.approvalNote,
+    }));
   }
 
-  async createService(service: Omit<ServiceRequest, 'id' | 'createdAt' | 'user'>): Promise<ServiceRequest> {
-    await delay(600);
-    const newService: ServiceRequest = {
-        ...service,
-        id: Math.random().toString(36).substr(2, 9),
-        user: this.users.find(u => u.id === service.userId)!,
-        createdAt: new Date().toISOString()
-    }
-    this.services.unshift(newService);
-    return newService;
+  async createService(
+    service: Omit<ServiceRequest, "id" | "createdAt" | "user">
+  ): Promise<ServiceRequest> {
+    const data = await apiRequest("/services", {
+      method: "POST",
+      body: JSON.stringify(service),
+    });
+
+    return {
+      id: data._id,
+      userId: data.userId._id,
+      user: {
+        id: data.userId._id,
+        firstName: data.userId.firstName,
+        lastName: data.userId.lastName,
+        email: data.userId.email,
+        role: data.userId.role,
+        avatar: data.userId.avatar,
+      },
+      itemName: data.itemName,
+      itemType: data.itemType,
+      borrowDate: data.borrowDate,
+      expectedReturnDate: data.expectedReturnDate,
+      status: data.status,
+      purpose: data.purpose,
+      createdAt: data.createdAt,
+    };
   }
 
-  async updateServiceStatus(id: string, status: ServiceRequest['status'], note?: string): Promise<void> {
-    await delay(400);
-    const idx = this.services.findIndex(s => s.id === id);
-    if (idx !== -1) {
-        const update: Partial<ServiceRequest> = { status };
-        
-        if (status === 'rejected') {
-            update.rejectionReason = note;
-        } else if (status === 'approved') {
-            update.approvalNote = note;
-        }
-
-        this.services[idx] = { 
-            ...this.services[idx], 
-            ...update
-        };
-    }
+  async updateServiceStatus(
+    id: string,
+    status: ServiceRequest["status"],
+    note?: string
+  ): Promise<void> {
+    await apiRequest(`/services/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status, note }),
+    });
   }
 
-  // Events & Calendar
+  // Events
   async getEvents(): Promise<Event[]> {
-    await delay(500);
-    return [...this.events];
+    const data = await apiRequest("/events");
+    return data.map((item: any) => ({
+      id: item._id,
+      title: item.title,
+      description: item.description,
+      eventDate: item.eventDate,
+      location: item.location,
+      organizerId: item.organizerId,
+      maxAttendees: item.maxAttendees,
+      currentAttendees: item.currentAttendees,
+      category: item.category,
+      imageUrl: item.imageUrl,
+      status: item.status,
+      isRegistered: item.isRegistered,
+    }));
   }
 
-  async createEvent(event: Omit<Event, 'id' | 'currentAttendees' | 'status'>): Promise<void> {
-    await delay(500);
-    this.events.push({
-        ...event,
-        id: Math.random().toString(36).substr(2, 9),
-        currentAttendees: 0,
-        status: 'upcoming'
+  async createEvent(
+    event: Omit<Event, "id" | "currentAttendees" | "status">
+  ): Promise<void> {
+    await apiRequest("/events", {
+      method: "POST",
+      body: JSON.stringify(event),
     });
   }
 
   async deleteEvent(id: string): Promise<void> {
-      await delay(300);
-      this.events = this.events.filter(e => e.id !== id);
+    await apiRequest(`/events/${id}`, {
+      method: "DELETE",
+    });
   }
 
   async registerForEvent(eventId: string, userId: string): Promise<void> {
-    await delay(400);
-    const idx = this.events.findIndex(e => e.id === eventId);
-    if (idx !== -1) {
-        this.events[idx] = { 
-            ...this.events[idx], 
-            currentAttendees: this.events[idx].currentAttendees + 1,
-            isRegistered: true 
-        };
-    }
+    await apiRequest(`/events/${eventId}/register`, {
+      method: "POST",
+    });
   }
 
   // Announcements
   async getAnnouncements(): Promise<Announcement[]> {
-    await delay(400);
-    return [...this.announcements];
+    const data = await apiRequest("/announcements");
+    return data.map((item: any) => ({
+      id: item._id,
+      title: item.title,
+      content: item.content,
+      category: item.category,
+      priority: item.priority,
+      isPublished: item.isPublished,
+      isPinned: item.isPinned,
+      views: item.views,
+      createdAt: item.createdAt,
+      author: item.author,
+    }));
   }
 
   async toggleAnnouncementPin(id: string): Promise<void> {
-    await delay(200);
-    const idx = this.announcements.findIndex(a => a.id === id);
-    if (idx !== -1) {
-        this.announcements[idx].isPinned = !this.announcements[idx].isPinned;
-    }
+    await apiRequest(`/announcements/${id}/pin`, {
+      method: "PUT",
+    });
   }
 
-  // News CMS
+  // News
   async getNews(): Promise<NewsItem[]> {
-      await delay(400);
-      return [...this.news];
+    const data = await apiRequest("/news");
+    return data.map((item: any) => ({
+      id: item._id,
+      title: item.title,
+      summary: item.summary,
+      content: item.content,
+      imageUrl: item.imageUrl,
+      publishedAt: item.createdAt,
+      author: item.author,
+    }));
   }
 
-  async createNews(item: Omit<NewsItem, 'id' | 'publishedAt'>): Promise<void> {
-      await delay(500);
-      this.news.unshift({
-          ...item,
-          id: Math.random().toString(36).substr(2, 9),
-          publishedAt: new Date().toISOString()
-      });
+  async createNews(item: Omit<NewsItem, "id" | "publishedAt">): Promise<void> {
+    await apiRequest("/news", {
+      method: "POST",
+      body: JSON.stringify(item),
+    });
   }
 
   async deleteNews(id: string): Promise<void> {
-      await delay(300);
-      this.news = this.news.filter(n => n.id !== id);
+    await apiRequest(`/news/${id}`, {
+      method: "DELETE",
+    });
   }
 
-  // Hotlines CMS
+  // Hotlines
   async getHotlines(): Promise<Hotline[]> {
-      await delay(300);
-      return [...this.hotlines];
+    const data = await apiRequest("/content/hotlines");
+    return data.map((item: any) => ({
+      id: item._id,
+      name: item.name,
+      number: item.number,
+      category: item.category,
+      icon: item.icon,
+    }));
   }
 
-  async createHotline(hotline: Omit<Hotline, 'id'>): Promise<void> {
-      await delay(400);
-      this.hotlines.push({ ...hotline, id: Math.random().toString(36).substr(2, 9) });
+  async createHotline(hotline: Omit<Hotline, "id">): Promise<void> {
+    await apiRequest("/content/hotlines", {
+      method: "POST",
+      body: JSON.stringify(hotline),
+    });
   }
 
   async deleteHotline(id: string): Promise<void> {
-      await delay(300);
-      this.hotlines = this.hotlines.filter(h => h.id !== id);
+    await apiRequest(`/content/hotlines/${id}`, {
+      method: "DELETE",
+    });
   }
 
-  // Officials CMS
+  // Officials
   async getOfficials(): Promise<Official[]> {
-      await delay(300);
-      return [...this.officials];
+    const data = await apiRequest("/content/officials");
+    return data.map((item: any) => ({
+      id: item._id,
+      name: item.name,
+      position: item.position,
+      imageUrl: item.imageUrl,
+      contact: item.contact,
+    }));
   }
 
-  async createOfficial(official: Omit<Official, 'id'>): Promise<void> {
-      await delay(400);
-      this.officials.push({ ...official, id: Math.random().toString(36).substr(2, 9) });
+  async createOfficial(official: Omit<Official, "id">): Promise<void> {
+    await apiRequest("/content/officials", {
+      method: "POST",
+      body: JSON.stringify(official),
+    });
   }
 
   async deleteOfficial(id: string): Promise<void> {
-      await delay(300);
-      this.officials = this.officials.filter(o => o.id !== id);
+    await apiRequest(`/content/officials/${id}`, {
+      method: "DELETE",
+    });
   }
 
-  // FAQs CMS
+  // FAQs
   async getFAQs(): Promise<FAQ[]> {
-      await delay(300);
-      return [...this.faqs];
+    const data = await apiRequest("/content/faqs");
+    return data.map((item: any) => ({
+      id: item._id,
+      question: item.question,
+      answer: item.answer,
+      category: item.category,
+    }));
   }
 
-  async createFAQ(faq: Omit<FAQ, 'id'>): Promise<void> {
-      await delay(400);
-      this.faqs.push({ ...faq, id: Math.random().toString(36).substr(2, 9) });
+  async createFAQ(faq: Omit<FAQ, "id">): Promise<void> {
+    await apiRequest("/content/faqs", {
+      method: "POST",
+      body: JSON.stringify(faq),
+    });
   }
 
   async deleteFAQ(id: string): Promise<void> {
-      await delay(300);
-      this.faqs = this.faqs.filter(f => f.id !== id);
+    await apiRequest(`/content/faqs/${id}`, {
+      method: "DELETE",
+    });
   }
 
   // Site Settings
   async getSiteSettings(): Promise<SiteSettings> {
-      await delay(300);
-      return { ...this.siteSettings };
+    const data = await apiRequest("/admin/settings");
+    return {
+      id: data._id,
+      barangayName: data.barangayName,
+      logoUrl: data.logoUrl,
+      contactEmail: data.contactEmail,
+      contactPhone: data.contactPhone,
+      address: data.address,
+      facebookUrl: data.facebookUrl,
+      twitterUrl: data.twitterUrl,
+    };
   }
 
   async updateSiteSettings(settings: SiteSettings): Promise<void> {
-      await delay(500);
-      this.siteSettings = settings;
+    await apiRequest("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
   }
 
   // Users (Admin)
   async getUsers(): Promise<User[]> {
-    await delay(600);
-    return [...this.users];
+    const data = await apiRequest("/admin/users");
+    return data.map((item: any) => ({
+      id: item._id,
+      firstName: item.firstName,
+      lastName: item.lastName,
+      email: item.email,
+      role: item.role,
+      avatar: item.avatar,
+      address: item.address,
+      phoneNumber: item.phoneNumber,
+      isVerified: item.isVerified,
+    }));
   }
 
   async deleteUser(id: string): Promise<void> {
-    await delay(500);
-    this.users = this.users.filter(u => u.id !== id);
+    await apiRequest(`/admin/users/${id}`, {
+      method: "DELETE",
+    });
   }
 
   // Audit Logs (Admin)
   async getAuditLogs(): Promise<AuditLog[]> {
-    await delay(500);
-    return [...this.auditLogs];
+    const data = await apiRequest("/admin/audit-logs");
+    return data.map((item: any) => ({
+      id: item._id,
+      userId: item.userId._id,
+      user: {
+        id: item.userId._id,
+        firstName: item.userId.firstName,
+        lastName: item.userId.lastName,
+        email: item.userId.email,
+        role: item.userId.role,
+      },
+      action: item.action,
+      resource: item.resource,
+      timestamp: item.createdAt,
+      status: item.status,
+      ipAddress: item.ipAddress,
+    }));
   }
 
   // Notifications
   async getNotifications(userId: string): Promise<Notification[]> {
-    await delay(300);
-    return this.notifications.filter(n => n.userId === userId);
+    const data = await apiRequest("/notifications");
+    return data.map((item: any) => ({
+      id: item._id,
+      userId: item.userId,
+      title: item.title,
+      message: item.message,
+      type: item.type,
+      isRead: item.isRead,
+      createdAt: item.createdAt,
+    }));
   }
 
   async markAllNotificationsRead(userId: string): Promise<void> {
-    await delay(300);
-    this.notifications.forEach(n => {
-        if(n.userId === userId) n.isRead = true;
+    await apiRequest("/notifications/read-all", {
+      method: "PUT",
     });
   }
 
-  // Real-time Simulation
+  // Real-time Simulation (kept for compatibility, but won't work with real backend)
   simulateIncomingNotification(userId: string): Notification | null {
-      if (Math.random() > 0.85) { 
-          const newNotif: Notification = {
-              id: Math.random().toString(36).substr(2, 9),
-              userId,
-              title: 'Update from Barangay',
-              message: 'Your request status has been updated or a new announcement is available.',
-              type: 'info',
-              isRead: false,
-              createdAt: new Date().toISOString()
-          };
-          this.notifications.unshift(newNotif);
-          return newNotif;
-      }
-      return null;
+    return null;
   }
 }
 
