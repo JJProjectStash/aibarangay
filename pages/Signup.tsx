@@ -23,6 +23,7 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
     phone: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -65,7 +66,9 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
     }
 
     // Confirm Password validation
-    if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
@@ -118,9 +121,21 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
     }
   };
 
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
   const { showToast } = useToast();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Mark all fields as touched
+    const allTouched = Object.keys(formData).reduce((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+    setTouched(allTouched);
+
     if (!validate()) {
       showToast(
         "Validation Error",
@@ -156,8 +171,8 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md my-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-teal-50/20 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md my-8 shadow-2xl border-0">
         <CardContent className="p-8">
           <button
             onClick={onBack}
@@ -180,9 +195,11 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                   onChange={(e) =>
                     handleNameChange("firstName", e.target.value)
                   }
-                  error={errors.firstName}
+                  onBlur={() => handleBlur("firstName")}
+                  error={touched.firstName ? errors.firstName : ""}
                   placeholder="Juan"
                   maxLength={50}
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -190,9 +207,11 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                 <Input
                   value={formData.lastName}
                   onChange={(e) => handleNameChange("lastName", e.target.value)}
-                  error={errors.lastName}
+                  onBlur={() => handleBlur("lastName")}
+                  error={touched.lastName ? errors.lastName : ""}
                   placeholder="Dela Cruz"
                   maxLength={50}
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -202,8 +221,11 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
-                error={errors.email}
+                onBlur={() => handleBlur("email")}
+                error={touched.email ? errors.email : ""}
                 placeholder="name@email.com"
+                disabled={loading}
+                maxLength={100}
               />
             </div>
             <div className="space-y-2">
@@ -213,8 +235,10 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                 placeholder="09123456789"
                 value={formData.phone}
                 onChange={(e) => handlePhoneChange(e.target.value)}
-                error={errors.phone}
+                onBlur={() => handleBlur("phone")}
+                error={touched.phone ? errors.phone : ""}
                 maxLength={11}
+                disabled={loading}
               />
               <p className="text-xs text-gray-500">
                 Format: 09XXXXXXXXX (11 digits)
@@ -229,15 +253,19 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                   onChange={(e) =>
                     handleInputChange("password", e.target.value)
                   }
-                  error={errors.password}
+                  onBlur={() => handleBlur("password")}
+                  error={touched.password ? errors.password : ""}
                   placeholder="••••••••"
-                  className="pr-10"
+                  className="pr-12"
+                  disabled={loading}
+                  maxLength={128}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
                   tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -259,15 +287,21 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                   onChange={(e) =>
                     handleInputChange("confirmPassword", e.target.value)
                   }
-                  error={errors.confirmPassword}
+                  onBlur={() => handleBlur("confirmPassword")}
+                  error={touched.confirmPassword ? errors.confirmPassword : ""}
                   placeholder="••••••••"
-                  className="pr-10"
+                  className="pr-12"
+                  disabled={loading}
+                  maxLength={128}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
                   tabIndex={-1}
+                  aria-label={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -282,15 +316,17 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
               <Input
                 value={formData.address}
                 onChange={(e) => handleInputChange("address", e.target.value)}
+                onBlur={() => handleBlur("address")}
                 placeholder="Block X Lot Y, Street Name, Barangay"
-                error={errors.address}
+                error={touched.address ? errors.address : ""}
                 maxLength={200}
+                disabled={loading}
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full mt-6"
+              className="w-full mt-6 h-12 font-bold"
               isLoading={loading}
               disabled={loading}
             >

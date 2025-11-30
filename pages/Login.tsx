@@ -56,11 +56,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
   };
 
   const handleEmailChange = (value: string) => {
-    // Sanitize: remove leading/trailing spaces, convert to lowercase
-    const sanitized = value.trim().toLowerCase();
-    setEmail(sanitized);
+    setEmail(value);
     if (touched.email) {
-      const validationError = validateEmail(sanitized);
+      const validationError = validateEmail(value);
       setErrors({ ...errors, email: validationError });
     }
   };
@@ -134,15 +132,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
 
   const fillDemoCreds = (role: string) => {
     const demoEmail = `${role}@ibarangay.com`;
+    const demoPassword = "demo1234";
     setEmail(demoEmail);
-    setPassword(""); // Demo accounts don't need password for testing
+    setPassword(demoPassword);
     setErrors({});
     setTouched({});
     showToast(
       "Demo Account",
       `${
         role.charAt(0).toUpperCase() + role.slice(1)
-      } credentials loaded. For demo purposes, password is not required.`,
+      } credentials loaded. Click Sign In to continue.`,
       "info",
       3000
     );
@@ -225,7 +224,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     onBlur={handlePasswordBlur}
                     placeholder="••••••••"
-                    className="h-12 pr-10 bg-gray-50 border-gray-200 focus:bg-white transition-all"
+                    className="h-12 pr-12 bg-gray-50 border-gray-200 focus:bg-white transition-all"
                     error={touched.password ? errors.password : ""}
                     disabled={loading}
                     autoComplete="current-password"
@@ -234,8 +233,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
                     tabIndex={-1}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />

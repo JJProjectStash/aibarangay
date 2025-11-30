@@ -651,6 +651,7 @@ export default function App() {
             setUser(u);
             setCurrentPage("dashboard");
           }}
+          onNavigateToSignup={() => setCurrentPage("signup")}
         />
       );
     if (currentPage === "signup")
