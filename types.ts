@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 
-export type UserRole = 'resident' | 'staff' | 'admin';
+export type UserRole = "resident" | "staff" | "admin";
 
 export interface User {
   id: string;
@@ -15,8 +15,8 @@ export interface User {
   idDocumentUrl?: string; // New: For verification
 }
 
-export type ComplaintStatus = 'pending' | 'in-progress' | 'resolved' | 'closed';
-export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+export type ComplaintStatus = "pending" | "in-progress" | "resolved" | "closed";
+export type Priority = "low" | "medium" | "high" | "urgent";
 
 export interface ComplaintHistory {
   id: string;
@@ -27,12 +27,12 @@ export interface ComplaintHistory {
 }
 
 export interface Comment {
-    id: string;
-    userId: string;
-    userName: string;
-    userRole: UserRole;
-    message: string;
-    timestamp: string;
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  message: string;
+  timestamp: string;
 }
 
 export interface Complaint {
@@ -54,16 +54,25 @@ export interface Complaint {
   attachments?: string[]; // New: Evidence photos
 }
 
-export type ServiceStatus = 'pending' | 'approved' | 'borrowed' | 'returned' | 'rejected';
+export type ServiceStatus =
+  | "pending"
+  | "approved"
+  | "borrowed"
+  | "returned"
+  | "rejected";
+export type RequestType = "Equipment" | "Facility";
 
 export interface ServiceRequest {
   id: string;
   userId: string;
   user: User;
+  requestType: RequestType;
   itemName: string;
   itemType: string;
   borrowDate: string;
   expectedReturnDate: string;
+  timeSlot?: string;
+  numberOfPeople?: number;
   status: ServiceStatus;
   purpose: string;
   createdAt: string;
@@ -83,7 +92,7 @@ export interface Event {
   currentAttendees: number;
   category: string;
   imageUrl?: string;
-  status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+  status: "upcoming" | "ongoing" | "completed" | "cancelled";
   isRegistered?: boolean;
 }
 
@@ -91,7 +100,7 @@ export interface Announcement {
   id: string;
   title: string;
   content: string;
-  category: 'general' | 'emergency' | 'event' | 'maintenance' | 'policy';
+  category: "general" | "emergency" | "event" | "maintenance" | "policy";
   priority: Priority;
   isPublished: boolean;
   isPinned: boolean;
@@ -115,7 +124,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
+  type: "info" | "warning" | "success" | "error";
   isRead: boolean;
   createdAt: string;
 }
@@ -127,7 +136,7 @@ export interface AuditLog {
   action: string;
   resource: string;
   timestamp: string;
-  status: 'success' | 'failure';
+  status: "success" | "failure";
   ipAddress?: string;
 }
 
@@ -135,34 +144,34 @@ export interface Hotline {
   id: string;
   name: string;
   number: string;
-  category: 'emergency' | 'health' | 'security' | 'utility' | 'official';
+  category: "emergency" | "health" | "security" | "utility" | "official";
   icon?: string;
 }
 
 export interface Official {
-    id: string;
-    name: string;
-    position: string;
-    imageUrl: string;
-    contact?: string;
+  id: string;
+  name: string;
+  position: string;
+  imageUrl: string;
+  contact?: string;
 }
 
 export interface FAQ {
-    id: string;
-    question: string;
-    answer: string;
-    category?: string;
+  id: string;
+  question: string;
+  answer: string;
+  category?: string;
 }
 
 export interface SiteSettings {
-    id: string;
-    barangayName: string;
-    logoUrl: string;
-    contactEmail: string;
-    contactPhone: string;
-    address: string;
-    facebookUrl?: string;
-    twitterUrl?: string;
+  id: string;
+  barangayName: string;
+  logoUrl: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+  facebookUrl?: string;
+  twitterUrl?: string;
 }
 
 export interface StatCardProps {
