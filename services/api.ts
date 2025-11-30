@@ -53,10 +53,13 @@ class ApiError extends Error {
   }
 }
 
-// Helper for API requests
+// Request deduplication cache - prevents duplicate simultaneous requests
+const pendingRequests = new Map<string, Promise<any>>();
+
+// Helper for API requests with deduplication
 const apiRequest = async (
   endpoint: string,
-  options: RequestInit & { skipAuth?: boolean } = {}
+  options: RequestInit & { skipAuth?: boolean; skipDedup?: boolean } = {}
 ) => {
   const token = getToken();
   const headers: HeadersInit = {
@@ -66,40 +69,65 @@ const apiRequest = async (
   };
 
   const url = `${API_URL}${endpoint}`;
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      ...options,
-      headers,
-    });
-  } catch (err) {
-    console.error(`Network error requesting ${url}:`, err);
-    throw new Error((err as Error).message || "Network error");
+  const method = options.method || "GET";
+  
+  // Create a unique key for this request (URL + method + body)
+  const requestKey = `${method}:${url}:${options.body || ""}`;
+  
+  // Check if this exact request is already in flight (only for GET requests by default)
+  // Skip deduplication for POST/PUT/DELETE or if explicitly requested
+  if (!options.skipDedup && method === "GET" && pendingRequests.has(requestKey)) {
+    console.log(`[API] Deduplicating request: ${requestKey}`);
+    return pendingRequests.get(requestKey);
   }
 
-  if (!response.ok) {
-    // If unauthorized and we sent a token, the token might be invalid/expired
-    // Remove it and throw error to force re-login
-    if (response.status === 401 && token && !options.skipAuth) {
-      console.warn(
-        `Authorization failure for ${url}: token appears to be invalid or expired.`
-      );
-      removeToken();
+  // Create the request promise
+  const requestPromise = (async () => {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    } catch (err) {
+      console.error(`Network error requesting ${url}:`, err);
+      throw new Error((err as Error).message || "Network error");
+    } finally {
+      // Remove from pending requests when done
+      pendingRequests.delete(requestKey);
+    }
+
+    if (!response.ok) {
+      // If unauthorized and we sent a token, the token might be invalid/expired
+      // Remove it and throw error to force re-login
+      if (response.status === 401 && token && !options.skipAuth) {
+        console.warn(
+          `Authorization failure for ${url}: token appears to be invalid or expired.`
+        );
+        removeToken();
+        const error = await response
+          .json()
+          .catch(() => ({ message: "Not authorized" }));
+        throw new ApiError(
+          error.message || "Session expired. Please login again.",
+          response.status
+        );
+      }
       const error = await response
         .json()
-        .catch(() => ({ message: "Not authorized" }));
-      throw new ApiError(
-        error.message || "Session expired. Please login again.",
-        response.status
-      );
+        .catch(() => ({ message: "Request failed" }));
+      throw new ApiError(error.message || "Request failed", response.status);
     }
-    const error = await response
-      .json()
-      .catch(() => ({ message: "Request failed" }));
-    throw new ApiError(error.message || "Request failed", response.status);
+
+    return response.json();
+  })();
+
+  // Store in pending requests (only for GET)
+  if (!options.skipDedup && method === "GET") {
+    pendingRequests.set(requestKey, requestPromise);
   }
 
-  return response.json();
+  return requestPromise;
 };
 
 class ApiService {
@@ -109,6 +137,7 @@ class ApiService {
       const data = await apiRequest("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
+        skipDedup: true,
       });
 
       if (data.token) {
@@ -137,6 +166,7 @@ class ApiService {
     const data = await apiRequest("/auth/register", {
       method: "POST",
       body: JSON.stringify(userData),
+      skipDedup: true,
     });
 
     if (data.token) {
@@ -161,6 +191,7 @@ class ApiService {
     const data = await apiRequest("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(user),
+      skipDedup: true,
     });
 
     return {
@@ -232,6 +263,7 @@ class ApiService {
     const data = await apiRequest("/complaints", {
       method: "POST",
       body: JSON.stringify(complaint),
+      skipDedup: true,
     });
 
     return {
@@ -265,6 +297,7 @@ class ApiService {
     await apiRequest(`/complaints/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status, note }),
+      skipDedup: true,
     });
   }
 
@@ -275,6 +308,7 @@ class ApiService {
     const data = await apiRequest(`/complaints/${complaintId}/comments`, {
       method: "POST",
       body: JSON.stringify(comment),
+      skipDedup: true,
     });
 
     return {
@@ -325,6 +359,7 @@ class ApiService {
     const data = await apiRequest("/services", {
       method: "POST",
       body: JSON.stringify(service),
+      skipDedup: true,
     });
 
     return {
@@ -359,6 +394,7 @@ class ApiService {
     await apiRequest(`/services/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status, note }),
+      skipDedup: true,
     });
   }
 
@@ -407,18 +443,21 @@ class ApiService {
     await apiRequest("/events", {
       method: "POST",
       body: JSON.stringify(event),
+      skipDedup: true,
     });
   }
 
   async deleteEvent(id: string): Promise<void> {
     await apiRequest(`/events/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
   async registerForEvent(eventId: string, userId: string): Promise<void> {
     await apiRequest(`/events/${eventId}/register`, {
       method: "POST",
+      skipDedup: true,
     });
   }
 
@@ -481,6 +520,7 @@ class ApiService {
     const data = await apiRequest("/announcements", {
       method: "POST",
       body: JSON.stringify(announcement),
+      skipDedup: true,
     });
 
     return {
@@ -500,12 +540,14 @@ class ApiService {
   async toggleAnnouncementPin(id: string): Promise<void> {
     await apiRequest(`/announcements/${id}/pin`, {
       method: "PUT",
+      skipDedup: true,
     });
   }
 
   async deleteAnnouncement(id: string): Promise<void> {
     await apiRequest(`/announcements/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
@@ -541,12 +583,14 @@ class ApiService {
     await apiRequest("/news", {
       method: "POST",
       body: JSON.stringify(item),
+      skipDedup: true,
     });
   }
 
   async deleteNews(id: string): Promise<void> {
     await apiRequest(`/news/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
@@ -566,12 +610,14 @@ class ApiService {
     await apiRequest("/content/hotlines", {
       method: "POST",
       body: JSON.stringify(hotline),
+      skipDedup: true,
     });
   }
 
   async deleteHotline(id: string): Promise<void> {
     await apiRequest(`/content/hotlines/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
@@ -603,12 +649,14 @@ class ApiService {
     await apiRequest("/content/officials", {
       method: "POST",
       body: JSON.stringify(official),
+      skipDedup: true,
     });
   }
 
   async deleteOfficial(id: string): Promise<void> {
     await apiRequest(`/content/officials/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
@@ -627,12 +675,14 @@ class ApiService {
     await apiRequest("/content/faqs", {
       method: "POST",
       body: JSON.stringify(faq),
+      skipDedup: true,
     });
   }
 
   async deleteFAQ(id: string): Promise<void> {
     await apiRequest(`/content/faqs/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
@@ -655,6 +705,7 @@ class ApiService {
     await apiRequest("/admin/settings", {
       method: "PUT",
       body: JSON.stringify(settings),
+      skipDedup: true,
     });
   }
 
@@ -694,6 +745,7 @@ class ApiService {
     const data = await apiRequest(`/admin/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
+      skipDedup: true,
     });
 
     return {
@@ -713,6 +765,7 @@ class ApiService {
   async deleteUser(id: string): Promise<void> {
     await apiRequest(`/admin/users/${id}`, {
       method: "DELETE",
+      skipDedup: true,
     });
   }
 
@@ -754,6 +807,7 @@ class ApiService {
   async markAllNotificationsRead(userId: string): Promise<void> {
     await apiRequest("/notifications/read-all", {
       method: "PUT",
+      skipDedup: true,
     });
   }
 

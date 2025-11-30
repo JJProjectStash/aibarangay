@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Home,
   FileText,
@@ -78,6 +78,9 @@ export default function App() {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [recentNotifs, setRecentNotifs] = useState<Notification[]>([]);
 
+  // Use ref to track if interval is already set to prevent duplicates
+  const notificationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -114,26 +117,41 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Clear any existing interval first
+    if (notificationIntervalRef.current) {
+      clearInterval(notificationIntervalRef.current);
+      notificationIntervalRef.current = null;
+    }
+
     if (!user) return;
 
-    api.getNotifications(user.id).then((notifs) => {
-      setRecentNotifs(notifs.slice(0, 5));
-      setUnreadCount(notifs.filter((n) => !n.isRead).length);
-    });
-
-    const intervalId = setInterval(() => {
-      const newNotif = api.simulateIncomingNotification(user.id);
-      if (newNotif) {
-        showToast(newNotif.title, newNotif.message, "info");
-        api.getNotifications(user.id).then((notifs) => {
-          setRecentNotifs(notifs.slice(0, 5));
-          setUnreadCount(notifs.filter((n) => !n.isRead).length);
-        });
+    // Initial fetch
+    const fetchNotifications = async () => {
+      try {
+        const notifs = await api.getNotifications(user.id);
+        setRecentNotifs(notifs.slice(0, 5));
+        setUnreadCount(notifs.filter((n) => !n.isRead).length);
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
       }
-    }, 10000);
+    };
 
-    return () => clearInterval(intervalId);
-  }, [user]);
+    fetchNotifications();
+
+    // Set up polling interval (increased to 30 seconds to reduce server load)
+    // Only poll if user is logged in
+    notificationIntervalRef.current = setInterval(() => {
+      fetchNotifications();
+    }, 30000); // Changed from 10000 (10s) to 30000 (30s)
+
+    // Cleanup function
+    return () => {
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+        notificationIntervalRef.current = null;
+      }
+    };
+  }, [user?.id]); // Only depend on user.id, not the entire user object
 
   // Router
   const renderPage = () => {
