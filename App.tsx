@@ -139,7 +139,12 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case "dashboard":
-        return <Dashboard user={user!} />;
+        return (
+          <Dashboard
+            user={user!}
+            onNavigate={(page) => setCurrentPage(page as Page)}
+          />
+        );
       case "complaints":
         return <Complaints user={user!} />;
       case "services":
