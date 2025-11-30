@@ -145,6 +145,7 @@ class ApiService {
         address: data.address,
         phoneNumber: data.phoneNumber,
         isVerified: data.isVerified,
+        idDocumentUrl: data.idDocumentUrl,
       };
     } catch (error) {
       console.error("Login error:", error);
@@ -172,10 +173,11 @@ class ApiService {
       address: data.address,
       phoneNumber: data.phoneNumber,
       isVerified: data.isVerified,
+      idDocumentUrl: data.idDocumentUrl,
     };
   }
 
-  async updateProfile(user: User): Promise<User> {
+  async updateProfile(user: Partial<User>): Promise<User> {
     const data = await apiRequest("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(user),
@@ -191,6 +193,7 @@ class ApiService {
       address: data.address,
       phoneNumber: data.phoneNumber,
       isVerified: data.isVerified,
+      idDocumentUrl: data.idDocumentUrl,
     };
   }
 
@@ -445,6 +448,7 @@ class ApiService {
       address: item.address,
       phoneNumber: item.phoneNumber,
       isVerified: item.isVerified,
+      idDocumentUrl: item.idDocumentUrl,
     }));
   }
 
@@ -665,7 +669,28 @@ class ApiService {
       address: item.address,
       phoneNumber: item.phoneNumber,
       isVerified: item.isVerified,
+      idDocumentUrl: item.idDocumentUrl,
     }));
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User> {
+    const data = await apiRequest(`/admin/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+
+    return {
+      id: data._id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      role: data.role,
+      avatar: data.avatar,
+      address: data.address,
+      phoneNumber: data.phoneNumber,
+      isVerified: data.isVerified,
+      idDocumentUrl: data.idDocumentUrl,
+    };
   }
 
   async deleteUser(id: string): Promise<void> {

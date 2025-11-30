@@ -1,251 +1,224 @@
-# iBarangay Online Services Platform
+# iBarangay - User Verification System
 
-A comprehensive web-based platform for barangay (community) management, enabling residents to access services, file complaints, register for events, and stay informed about community announcements.
+## Overview
+This project implements a complete user management and verification system for the iBarangay platform, allowing residents to upload government IDs for identity verification.
 
-## Features
+## Key Features Implemented
 
-### For Residents
-- **Dashboard**: Overview of personal requests, complaints, and upcoming events
-- **Service Requests**: Request equipment (chairs, tables, tents) or facility bookings (basketball court, multi-purpose hall)
-- **Complaints Management**: File and track complaints with photo evidence and real-time updates
-- **Events Registration**: Browse and register for community events
-- **Announcements**: Stay updated with official barangay announcements
-- **Profile Management**: Update personal information and verify identity
+### 1. Government ID Upload
+- **User Profile**: Residents can upload their government ID (UMID, Driver's License, Passport, etc.) from their profile page
+- **File Validation**: Automatic validation for file size (max 5MB) and format
+- **Visual Preview**: Users can preview their uploaded ID before submission
+- **Status Tracking**: Clear indicators showing verification status (Verified/Unverified/Pending)
 
-### For Staff & Admin
-- **Request Management**: Approve/reject service requests with notes
-- **Complaint Resolution**: Track and resolve resident complaints
-- **Content Management**: Manage news, events, announcements, hotlines, and FAQs
-- **User Management**: View and manage resident accounts
-- **Audit Logs**: Track all system activities
-- **System Configuration**: Customize barangay information and settings
+### 2. Admin Verification Dashboard
+- **User Management**: Comprehensive admin panel to view all users
+- **Filtering**: Quick filters for All Users, Pending Verification, Staff, and Admins
+- **ID Review**: Admins can view uploaded government IDs in high quality
+- **One-Click Verification**: Approve or reject verification with a single click
+- **Audit Trail**: All verification actions are logged for accountability
 
-## Tech Stack
+### 3. Backend API Enhancements
+- **Secure Upload**: Base64 image handling with size validation
+- **Dynamic Updates**: Real-time synchronization between frontend and backend
+- **Audit Logging**: Automatic logging of ID uploads and verification actions
+- **Role Management**: Admins can update user roles and verification status
 
-### Frontend
-- **React 19** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **Lucide React** for icons
-- **Recharts** for data visualization
-- **date-fns** for date manipulation
-
-### Backend
-- **Node.js** with Express
-- **MongoDB** with Mongoose ODM
-- **JWT** for authentication
-- **bcryptjs** for password hashing
-- **express-validator** for input validation
-- **PDFKit** for report generation
-
-## Getting Started
-
-### Prerequisites
-- Node.js (v16 or higher)
-- MongoDB (v5 or higher)
-- npm or pnpm
-
-### Backend Setup
-
-1. Navigate to the backend directory:
-```bash
-cd aibarangay-be
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Create a `.env` file based on `.env.example`:
-```bash
-cp .env.example .env
-```
-
-4. Configure your environment variables in `.env`:
-```
-NODE_ENV=development
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/ibarangay
-JWT_SECRET=your_secure_random_string_here
-CLIENT_URL=http://localhost:5173
-```
-
-5. Seed the database with sample data (optional):
-```bash
-npm run seed
-```
-
-6. Start the development server:
-```bash
-npm run dev
-```
-
-The backend API will be available at `http://localhost:5000`
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
-```bash
-cd aibarangay
-```
-
-2. Install dependencies:
-```bash
-npm install
-# or
-pnpm install
-```
-
-3. Create a `.env` file:
-```bash
-echo "VITE_API_URL=http://localhost:5000/api" > .env
-```
-
-4. Start the development server:
-```bash
-npm run dev
-# or
-pnpm run dev
-```
-
-The frontend will be available at `http://localhost:5173`
-
-## Demo Accounts
-
-After seeding the database, you can use these demo accounts:
-
-- **Admin**: admin@ibarangay.com
-- **Staff**: staff@ibarangay.com
-- **Resident**: resident@ibarangay.com
-
-(Password authentication is optional in demo mode - just enter the email)
-
-## API Documentation
-
-### Authentication Endpoints
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/profile` - Update user profile
-
-### Complaints Endpoints
-- `GET /api/complaints` - Get all complaints (filtered by role)
-- `POST /api/complaints` - Create new complaint
-- `PUT /api/complaints/:id/status` - Update complaint status (Staff/Admin)
-- `POST /api/complaints/:id/comments` - Add comment to complaint
-
-### Services Endpoints
-- `GET /api/services` - Get all service requests (filtered by role)
-- `POST /api/services` - Create new service request
-- `PUT /api/services/:id/status` - Update service status (Staff/Admin)
-
-### Events Endpoints
-- `GET /api/events` - Get all events
-- `POST /api/events` - Create new event (Staff/Admin)
-- `POST /api/events/:id/register` - Register for event
-- `GET /api/events/:id/registered` - Get registered users (Staff/Admin)
-- `DELETE /api/events/:id` - Delete event (Admin)
-
-### Public Endpoints (No Authentication Required)
-- `GET /api/public/events` - Get public events
-- `GET /api/public/announcements` - Get public announcements
-- `GET /api/public/news` - Get public news
-- `GET /api/public/officials` - Get barangay officials
-- `GET /api/public/settings` - Get site settings
-
-## Input Validation
-
-The platform implements comprehensive input validation on both frontend and backend:
-
-### Frontend Validation
-- Real-time validation feedback
-- Character limits and format restrictions
-- Pattern matching for phone numbers, emails, etc.
-- Date validation for service requests
-
-### Backend Validation
-- express-validator for all API endpoints
-- Sanitization of user inputs
-- Type checking and format validation
-- Business logic validation (e.g., dates, status transitions)
-
-## Security Features
-
-- JWT-based authentication
-- Password hashing with bcryptjs
-- Role-based access control (RBAC)
-- Input sanitization and validation
-- CORS configuration
-- Audit logging for all critical actions
-- File size limits for uploads
+### 4. Data Validation & Security
+- **Input Validation**: Comprehensive validation for all user inputs
+- **Phone Number**: Philippine format validation (09XXXXXXXXX)
+- **Name Fields**: Only letters, spaces, dots, and dashes allowed
+- **Address**: Maximum 200 characters with proper sanitization
+- **File Size Limits**: 4MB for avatars, 5MB for ID documents
 
 ## Project Structure
 
 ```
 aibarangay/
-├── components/          # Reusable UI components
-├── pages/              # Page components
-├── services/           # API service layer
-├── types.ts            # TypeScript type definitions
-└── App.tsx             # Main application component
-
-aibarangay-be/
-├── config/             # Configuration files
-├── middleware/         # Express middleware
-├── models/             # Mongoose models
-├── routes/             # API routes
-├── scripts/            # Utility scripts (seeding, etc.)
-├── utils/              # Helper functions
-└── server.js           # Express server entry point
+├── aibarangay-backend/
+│   ├── models/
+│   │   └── User.js (Updated with idDocumentUrl field)
+│   ├── routes/
+│   │   ├── auth.js (Enhanced with ID upload support)
+│   │   └── admin.js (New verification endpoints)
+│   ├── .env (Configuration)
+│   └── server.js
+│
+└── aibarangay-frontend/
+    ├── pages/
+    │   ├── Profile.tsx (ID upload interface)
+    │   ├── AdminUsers.tsx (Verification dashboard)
+    │   └── Signup.tsx (Enhanced validation)
+    ├── services/
+    │   └── api.ts (Updated API methods)
+    ├── components/
+    │   └── UI.tsx (FileUpload component)
+    └── types.ts (User interface with idDocumentUrl)
 ```
 
-## Development
+## Setup Instructions
 
-### Running Tests
-```bash
-# Backend
-cd aibarangay-be
-npm test
+### Backend Setup
+1. Navigate to backend directory:
+   ```bash
+   cd aibarangay-backend
+   ```
 
-# Frontend
-cd aibarangay
-npm test
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Configure environment variables:
+   - Copy `.env.example` to `.env`
+   - Update `MONGODB_URI` with your MongoDB connection string
+   - Set a secure `JWT_SECRET`
+
+4. Start the server:
+   ```bash
+   npm run dev
+   ```
+
+### Frontend Setup
+1. Navigate to frontend directory:
+   ```bash
+   cd aibarangay-frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Configure API URL:
+   - Create `.env` file
+   - Set `VITE_API_URL=http://localhost:5000/api`
+
+4. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+## User Flow
+
+### For Residents:
+1. **Sign Up**: Create account with validated personal information
+2. **Upload ID**: Navigate to Profile page and upload government ID
+3. **Wait for Verification**: Admin reviews and approves the ID
+4. **Access Services**: Once verified, access all barangay services
+
+### For Admins:
+1. **View Pending Users**: Check "Pending Verification" tab in User Management
+2. **Review ID Documents**: Click on user to view uploaded government ID
+3. **Verify Identity**: Click "Approve & Verify" to grant full access
+4. **Manage Roles**: Update user roles (Resident, Staff, Admin)
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user
+- `PUT /api/auth/profile` - Update profile (includes ID upload)
+
+### Admin
+- `GET /api/admin/users` - Get all users
+- `PUT /api/admin/users/:id` - Update user (role, verification)
+- `DELETE /api/admin/users/:id` - Delete user
+- `GET /api/admin/audit-logs` - View audit logs
+
+## Validation Rules
+
+### User Registration
+- **First/Last Name**: 2-50 characters, letters only
+- **Email**: Valid email format
+- **Password**: Min 8 chars, uppercase, lowercase, number
+- **Phone**: 09XXXXXXXXX (11 digits)
+- **Address**: Max 200 characters
+
+### ID Upload
+- **Accepted Formats**: JPG, PNG, GIF, SVG
+- **Max Size**: 5MB
+- **Required**: Clear photo showing full name and photo
+
+## Security Features
+
+1. **JWT Authentication**: Secure token-based authentication
+2. **Password Hashing**: bcrypt with salt rounds
+3. **Input Sanitization**: All inputs validated and sanitized
+4. **File Size Limits**: Prevent large file uploads
+5. **Role-Based Access**: Admin-only verification endpoints
+6. **Audit Logging**: Track all verification actions
+
+## Database Schema
+
+### User Model
+```javascript
+{
+  firstName: String (required, 2-50 chars),
+  lastName: String (required, 2-50 chars),
+  email: String (required, unique, lowercase),
+  password: String (required, hashed, min 6 chars),
+  role: String (resident/staff/admin),
+  avatar: String (base64 or URL),
+  address: String (max 200 chars),
+  phoneNumber: String (09XXXXXXXXX),
+  isVerified: Boolean (default: false),
+  idDocumentUrl: String (base64 or URL),
+  timestamps: true
+}
 ```
 
-### Building for Production
+## Testing Checklist
 
-Frontend:
-```bash
-cd aibarangay
-npm run build
-```
+- [ ] User can register with valid information
+- [ ] User can upload government ID from profile
+- [ ] Admin can see pending verification count
+- [ ] Admin can view uploaded ID documents
+- [ ] Admin can approve verification
+- [ ] Verification status updates in real-time
+- [ ] Audit logs record verification actions
+- [ ] File size validation works correctly
+- [ ] Phone number validation (Philippine format)
+- [ ] Name validation (letters only)
 
-Backend:
-```bash
-cd aibarangay-be
-# Set NODE_ENV=production in .env
-npm start
-```
+## Future Enhancements
 
-## Contributing
+1. **ID Rejection**: Allow admins to reject IDs with reason
+2. **Email Notifications**: Notify users when verified
+3. **Document Expiry**: Track ID expiration dates
+4. **Multiple IDs**: Support multiple ID uploads
+5. **OCR Integration**: Auto-extract information from IDs
+6. **SMS Verification**: Add phone number verification
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+## Troubleshooting
 
-## License
+### Common Issues
 
-This project is licensed under the ISC License.
+1. **MongoDB Connection Error**
+   - Ensure MongoDB is running
+   - Check MONGODB_URI in .env file
+
+2. **CORS Error**
+   - Verify CLIENT_URL in backend .env
+   - Check VITE_API_URL in frontend .env
+
+3. **File Upload Fails**
+   - Check file size (max 5MB)
+   - Ensure correct file format (images only)
+
+4. **Verification Not Updating**
+   - Clear browser cache
+   - Check network tab for API errors
+   - Verify admin role permissions
 
 ## Support
 
-For issues and questions, please open an issue on GitHub or contact the development team.
+For issues or questions, please check:
+- Backend logs: `npm run dev` output
+- Frontend console: Browser developer tools
+- Network requests: Browser network tab
 
-## Acknowledgments
+## License
 
-- Built with modern web technologies
-- Designed for Philippine barangay communities
-- Inspired by digital governance initiatives
+This project is part of the iBarangay Online Services platform.
