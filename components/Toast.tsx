@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   X,
   CheckCircle2,
@@ -27,47 +27,135 @@ export const Toast: React.FC<ToastProps> = ({
   duration = 4000,
   onClose,
 }) => {
+  const [progress, setProgress] = useState(100);
+  const [isExiting, setIsExiting] = useState(false);
+
   useEffect(() => {
     if (duration > 0) {
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          const newProgress = prev - 100 / (duration / 50);
+          return newProgress < 0 ? 0 : newProgress;
+        });
+      }, 50);
+
       const timer = setTimeout(() => {
-        onClose(id);
+        setIsExiting(true);
+        setTimeout(() => onClose(id), 300);
       }, duration);
-      return () => clearTimeout(timer);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timer);
+      };
     }
   }, [id, duration, onClose]);
 
-  const icons = {
-    success: <CheckCircle2 className="w-5 h-5 text-green-500" />,
-    error: <AlertCircle className="w-5 h-5 text-red-500" />,
-    info: <Info className="w-5 h-5 text-primary-500" />,
-    warning: <AlertTriangle className="w-5 h-5 text-amber-500" />,
+  const handleClose = () => {
+    setIsExiting(true);
+    setTimeout(() => onClose(id), 300);
   };
 
-  const borderColors = {
-    success: "border-green-500",
-    error: "border-red-500",
-    info: "border-primary-500",
-    warning: "border-amber-500",
+  const configs = {
+    success: {
+      icon: <CheckCircle2 className="w-5 h-5" />,
+      bgGradient: "from-green-50 to-emerald-50",
+      borderColor: "border-green-400",
+      iconColor: "text-green-600",
+      titleColor: "text-green-900",
+      messageColor: "text-green-700",
+      progressColor: "bg-green-500",
+      glowColor: "shadow-green-500/20",
+    },
+    error: {
+      icon: <AlertCircle className="w-5 h-5" />,
+      bgGradient: "from-red-50 to-rose-50",
+      borderColor: "border-red-400",
+      iconColor: "text-red-600",
+      titleColor: "text-red-900",
+      messageColor: "text-red-700",
+      progressColor: "bg-red-500",
+      glowColor: "shadow-red-500/20",
+    },
+    info: {
+      icon: <Info className="w-5 h-5" />,
+      bgGradient: "from-blue-50 to-cyan-50",
+      borderColor: "border-blue-400",
+      iconColor: "text-blue-600",
+      titleColor: "text-blue-900",
+      messageColor: "text-blue-700",
+      progressColor: "bg-blue-500",
+      glowColor: "shadow-blue-500/20",
+    },
+    warning: {
+      icon: <AlertTriangle className="w-5 h-5" />,
+      bgGradient: "from-amber-50 to-yellow-50",
+      borderColor: "border-amber-400",
+      iconColor: "text-amber-600",
+      titleColor: "text-amber-900",
+      messageColor: "text-amber-700",
+      progressColor: "bg-amber-500",
+      glowColor: "shadow-amber-500/20",
+    },
   };
+
+  const config = configs[type];
 
   return (
     <div
       className={cn(
-        "bg-white border-l-4 shadow-lg rounded-md p-4 w-80 flex gap-3 animate-in slide-in-from-right fade-in duration-300",
-        borderColors[type]
+        "relative bg-gradient-to-br backdrop-blur-sm border-l-4 rounded-lg shadow-xl overflow-hidden w-80 transition-all duration-300",
+        config.bgGradient,
+        config.borderColor,
+        config.glowColor,
+        isExiting
+          ? "opacity-0 translate-x-full scale-95"
+          : "opacity-100 translate-x-0 scale-100 animate-in slide-in-from-right-5 fade-in duration-300"
       )}
     >
-      {icons[type]}
-      <div className="flex-1">
-        <h4 className="text-sm font-bold text-gray-900">{title}</h4>
-        <p className="text-sm text-gray-600 mt-1">{message}</p>
+      {/* Progress bar */}
+      <div className="absolute bottom-0 left-0 h-1 bg-gray-200/30 w-full">
+        <div
+          className={cn(
+            "h-full transition-all duration-100 ease-linear",
+            config.progressColor
+          )}
+          style={{ width: `${progress}%` }}
+        />
       </div>
-      <button
-        onClick={() => onClose(id)}
-        className="text-gray-400 hover:text-gray-600 transition-colors"
-      >
-        <X className="w-4 h-4" />
-      </button>
+
+      <div className="p-4 flex gap-3">
+        {/* Icon with pulse animation */}
+        <div className={cn("flex-shrink-0 relative", config.iconColor)}>
+          <div className="absolute inset-0 animate-ping opacity-20">
+            {config.icon}
+          </div>
+          <div className="relative">{config.icon}</div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <h4 className={cn("text-sm font-bold mb-1", config.titleColor)}>
+            {title}
+          </h4>
+          <p className={cn("text-sm leading-relaxed", config.messageColor)}>
+            {message}
+          </p>
+        </div>
+
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          className={cn(
+            "flex-shrink-0 rounded-full p-1 transition-all duration-200 hover:bg-black/5 active:scale-95",
+            config.iconColor,
+            "hover:rotate-90"
+          )}
+          aria-label="Close notification"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 };
@@ -82,24 +170,34 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   onClose,
 }) => {
   return (
-    <div className="fixed top-20 right-4 z-50 space-y-2">
-      {toasts.map((toast) => (
-        <Toast key={toast.id} {...toast} onClose={onClose} />
-      ))}
+    <div className="fixed top-4 right-4 z-[9999] space-y-3 pointer-events-none">
+      <div className="pointer-events-auto space-y-3">
+        {toasts.map((toast) => (
+          <Toast key={toast.id} {...toast} onClose={onClose} />
+        ))}
+      </div>
     </div>
   );
 };
 
-// Hook for managing toasts
 // Toast context + provider for global use across the app
 type ToastContextValue = {
-  showToast: (title: string, message: string, type?: ToastType, duration?: number) => void;
+  showToast: (
+    title: string,
+    message: string,
+    type?: ToastType,
+    duration?: number
+  ) => void;
   removeToast: (id: string) => void;
 };
 
-const ToastContext = React.createContext<ToastContextValue | undefined>(undefined);
+const ToastContext = React.createContext<ToastContextValue | undefined>(
+  undefined
+);
 
-export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
+export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({
+  children,
+}) => {
   const [toasts, setToasts] = React.useState<ToastProps[]>([]);
 
   const removeToast = (id: string) => {
@@ -112,7 +210,7 @@ export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({ childr
     type: ToastType = "info",
     duration: number = 4000
   ) => {
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newToast: ToastProps = {
       id,
       title,
@@ -121,7 +219,12 @@ export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({ childr
       duration,
       onClose: removeToast,
     };
-    setToasts((prev) => [...prev, newToast]);
+
+    // Limit to 5 toasts at a time
+    setToasts((prev) => {
+      const updated = [...prev, newToast];
+      return updated.slice(-5);
+    });
   };
 
   return (
@@ -135,7 +238,7 @@ export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({ childr
 export const useToast = (): ToastContextValue => {
   const ctx = React.useContext(ToastContext);
   if (!ctx) {
-    throw new Error('useToast must be used within a ToastProvider');
+    throw new Error("useToast must be used within a ToastProvider");
   }
   return ctx;
 };
