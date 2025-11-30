@@ -203,6 +203,11 @@ class ApiService {
     return apiRequest("/stats");
   }
 
+  // Analytics (Admin/Staff only)
+  async getAnalytics() {
+    return apiRequest("/stats/analytics");
+  }
+
   // Complaints
   async getComplaints(user: User): Promise<Complaint[]> {
     const data = await apiRequest("/complaints");

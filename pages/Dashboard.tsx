@@ -35,7 +35,7 @@ import {
   Badge,
 } from "../components/UI";
 import { api } from "../services/api";
-import { useToast } from '../components/Toast';
+import { useToast } from "../components/Toast";
 import { User, Announcement } from "../types";
 
 interface DashboardProps {
@@ -45,23 +45,36 @@ interface DashboardProps {
 
 const COLORS = ["#14b8a6", "#f59e0b", "#ef4444", "#3b82f6"];
 
-const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [latestAnnouncement, setLatestAnnouncement] =
     useState<Announcement | null>(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const data = await api.getStats(user);
-      setStats(data);
-      if (user.role === "resident") {
-        const announcements = await api.getAnnouncements();
-        const pinned = announcements.find((a) => a.isPinned && a.isPublished);
-        setLatestAnnouncement(pinned || announcements[0] || null);
+      try {
+        const data = await api.getStats(user);
+        setStats(data);
+
+        if (user.role === "resident") {
+          const announcements = await api.getAnnouncements();
+          const pinned = announcements.find((a) => a.isPinned && a.isPublished);
+          setLatestAnnouncement(pinned || announcements[0] || null);
+        }
+
+        // Fetch analytics data for admin/staff
+        if (user.role === "admin" || user.role === "staff") {
+          const analytics = await api.getAnalytics();
+          setAnalyticsData(analytics);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchData();
   }, [user]);
@@ -81,30 +94,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      showToast("Success", "Report generated successfully!", "success");
     } catch (error) {
       console.error("Failed to generate report:", error);
-      showToast('Error', 'Failed to generate report. Please try again.', 'error');
+      showToast(
+        "Error",
+        "Failed to generate report. Please try again.",
+        "error"
+      );
     } finally {
       setGeneratingPDF(false);
     }
   };
-
-  const dataComplaintTrend = [
-    { name: "Mon", count: 4 },
-    { name: "Tue", count: 7 },
-    { name: "Wed", count: 3 },
-    { name: "Thu", count: 8 },
-    { name: "Fri", count: 5 },
-    { name: "Sat", count: 2 },
-    { name: "Sun", count: 1 },
-  ];
-
-  const dataCategory = [
-    { name: "Sanitation", value: 400 },
-    { name: "Noise", value: 300 },
-    { name: "Infra", value: 300 },
-    { name: "Security", value: 200 },
-  ];
 
   const getStatCards = () => {
     if (user.role === "resident") {
@@ -143,28 +144,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     return [
       {
         title: "Total Residents",
-        value: stats?.totalResidents,
+        value: stats?.totalResidents || 0,
         icon: <Users className="h-6 w-6 text-primary-600" />,
         color: "bg-primary-50",
         trend: "+12% from last month",
       },
       {
         title: "Pending Complaints",
-        value: stats?.pendingComplaints,
+        value: stats?.pendingComplaints || 0,
         icon: <AlertCircle className="h-6 w-6 text-orange-600" />,
         color: "bg-orange-50",
         trend: "-2% from last week",
       },
       {
         title: "Active Services",
-        value: stats?.activeServices,
+        value: stats?.activeServices || 0,
         icon: <FileText className="h-6 w-6 text-blue-600" />,
         color: "bg-blue-50",
         trend: "+5 new today",
       },
       {
         title: "Resolved Cases",
-        value: stats?.resolvedComplaints,
+        value: stats?.resolvedComplaints || 0,
         icon: <Activity className="h-6 w-6 text-green-600" />,
         color: "bg-green-50",
         trend: "+8 this week",
@@ -202,7 +203,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Quick Actions */}
           <div className="lg:col-span-2 grid md:grid-cols-2 gap-4">
-            <button className="flex items-center justify-between p-4 bg-primary-600 text-white rounded-xl shadow-md hover:bg-primary-700 transition-colors group">
+            <button
+              onClick={() => onNavigate?.("complaints")}
+              className="flex items-center justify-between p-4 bg-primary-600 text-white rounded-xl shadow-md hover:bg-primary-700 transition-colors group"
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg">
                   <MessageSquarePlus className="w-6 h-6" />
@@ -217,7 +221,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <ArrowRight className="w-5 h-5 opacity-70 group-hover:translate-x-1 transition-transform" />
             </button>
 
-            <button className="flex items-center justify-between p-4 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-colors group">
+            <button
+              onClick={() => onNavigate?.("services")}
+              className="flex items-center justify-between p-4 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition-colors group"
+            >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg">
                   <PlusCircle className="w-6 h-6" />
@@ -319,7 +326,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <Skeleton className="w-full h-full rounded-lg" />
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dataComplaintTrend}>
+                    <BarChart data={analyticsData?.complaintTrend || []}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} />
                       <YAxis axisLine={false} tickLine={false} />
@@ -351,12 +358,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <div className="h-[300px] w-full flex items-center justify-center">
                 {loading ? (
                   <Skeleton className="w-48 h-48 rounded-full" />
-                ) : (
+                ) : analyticsData?.categoryData &&
+                  analyticsData.categoryData.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={dataCategory}
+                          data={analyticsData.categoryData}
                           cx="50%"
                           cy="50%"
                           innerRadius={60}
@@ -364,12 +372,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                           paddingAngle={5}
                           dataKey="value"
                         >
-                          {dataCategory.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                            />
-                          ))}
+                          {analyticsData.categoryData.map(
+                            (entry: any, index: number) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            )
+                          )}
                         </Pie>
                         <Tooltip
                           contentStyle={{
@@ -381,19 +391,26 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="space-y-2 ml-4">
-                      {dataCategory.map((entry, index) => (
-                        <div key={index} className="flex items-center text-sm">
+                      {analyticsData.categoryData.map(
+                        (entry: any, index: number) => (
                           <div
-                            className="w-3 h-3 rounded-full mr-2"
-                            style={{
-                              backgroundColor: COLORS[index % COLORS.length],
-                            }}
-                          ></div>
-                          <span className="text-gray-600">{entry.name}</span>
-                        </div>
-                      ))}
+                            key={index}
+                            className="flex items-center text-sm"
+                          >
+                            <div
+                              className="w-3 h-3 rounded-full mr-2"
+                              style={{
+                                backgroundColor: COLORS[index % COLORS.length],
+                              }}
+                            ></div>
+                            <span className="text-gray-600">{entry.name}</span>
+                          </div>
+                        )
+                      )}
                     </div>
                   </>
+                ) : (
+                  <p className="text-gray-500 text-sm">No data available</p>
                 )}
               </div>
             </CardContent>
@@ -415,6 +432,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     <div className="space-y-2 flex-1">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-1/4" />
+                    </div>
+                  </div>
+                ))
+              : analyticsData?.recentActivity &&
+                analyticsData.recentActivity.length > 0
+              ? analyticsData.recentActivity.map((activity: any, i: number) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center">
+                      <Activity className="h-5 w-5 text-primary-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {activity.message}
+                      </p>
+                      <p className="text-xs text-gray-500">{activity.time}</p>
                     </div>
                   </div>
                 ))
