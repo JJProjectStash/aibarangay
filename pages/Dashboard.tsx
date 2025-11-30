@@ -321,11 +321,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
               <CardTitle>Weekly Complaint Trend</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full">
+              <div className="h-[300px] w-full min-h-[300px]">
                 {loading ? (
                   <Skeleton className="w-full h-full rounded-lg" />
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={analyticsData?.complaintTrend || []}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} />
@@ -355,41 +355,45 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
               <CardTitle>Complaint Categories</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full flex items-center justify-center">
+              <div className="h-[300px] w-full min-h-[300px]">
                 {loading ? (
-                  <Skeleton className="w-48 h-48 rounded-full" />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Skeleton className="w-48 h-48 rounded-full" />
+                  </div>
                 ) : analyticsData?.categoryData &&
                   analyticsData.categoryData.length > 0 ? (
-                  <>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={analyticsData.categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {analyticsData.categoryData.map(
-                            (entry: any, index: number) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={COLORS[index % COLORS.length]}
-                              />
-                            )
-                          )}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "8px",
-                            border: "none",
-                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                  <div className="flex items-center justify-center h-full">
+                    <div className="w-1/2 h-full">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={analyticsData.categoryData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {analyticsData.categoryData.map(
+                              (entry: any, index: number) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={COLORS[index % COLORS.length]}
+                                />
+                              )
+                            )}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              borderRadius: "8px",
+                              border: "none",
+                              boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                     <div className="space-y-2 ml-4">
                       {analyticsData.categoryData.map(
                         (entry: any, index: number) => (
@@ -408,9 +412,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
                         )
                       )}
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">No data available</p>
+                  <div className="w-full h-full flex items-center justify-center">
+                    <p className="text-gray-500 text-sm">No data available</p>
+                  </div>
                 )}
               </div>
             </CardContent>
