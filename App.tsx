@@ -66,174 +66,57 @@ type Page =
   | "profile"
   | "404";
 
-export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [currentPage, setCurrentPage] = useState<Page>("landing");
+const NavButton = ({ active, onClick, icon, children }: any) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
+      active
+        ? "bg-primary-50 text-primary-700"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+    }`}
+  >
+    <span
+      className={`mr-3 ${
+        active ? "text-primary-600" : "text-gray-400 group-hover:text-gray-500"
+      }`}
+    >
+      {icon}
+    </span>
+    {children}
+  </button>
+);
+
+interface LayoutProps {
+  children?: React.ReactNode;
+  user: User | null;
+  setUser: (user: User | null) => void;
+  currentPage: Page;
+  setCurrentPage: (page: Page) => void;
+  siteSettings: SiteSettings | null;
+  unreadCount: number;
+  setUnreadCount: (count: number) => void;
+  recentNotifs: Notification[];
+}
+
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  user,
+  setUser,
+  currentPage,
+  setCurrentPage,
+  siteSettings,
+  unreadCount,
+  setUnreadCount,
+  recentNotifs,
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
-  const { showToast } = useToast();
-
-  // Notification State
-  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [recentNotifs, setRecentNotifs] = useState<Notification[]>([]);
 
-  // Use ref to track if interval is already set to prevent duplicates
-  const notificationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const settings = await api.getPublicSiteSettings();
-        setSiteSettings(settings);
-      } catch (err) {
-        console.warn(
-          "Could not load admin site settings (may be admin-only):",
-          err
-        );
-        // Use a lightweight/default fallback so UI has a name and logo can be absent.
-        setSiteSettings({
-          id: "default",
-          barangayName: "iBarangay",
-          logoUrl: "",
-          contactEmail: "",
-          contactPhone: "",
-          address: "",
-          facebookUrl: "",
-          twitterUrl: "",
-        });
-      }
-    })();
-  }, []);
-
-  // Refresh site settings when admin config is updated
-  const refreshSiteSettings = async () => {
-    try {
-      const settings = await api.getPublicSiteSettings();
-      setSiteSettings(settings);
-    } catch (err) {
-      console.warn("Could not refresh site settings:", err);
-    }
-  };
-
-  useEffect(() => {
-    // Clear any existing interval first
-    if (notificationIntervalRef.current) {
-      clearInterval(notificationIntervalRef.current);
-      notificationIntervalRef.current = null;
-    }
-
-    if (!user) return;
-
-    // Initial fetch
-    const fetchNotifications = async () => {
-      try {
-        const notifs = await api.getNotifications(user.id);
-        setRecentNotifs(notifs.slice(0, 5));
-        setUnreadCount(notifs.filter((n) => !n.isRead).length);
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-      }
-    };
-
-    fetchNotifications();
-
-    // Set up polling interval (increased to 30 seconds to reduce server load)
-    // Only poll if user is logged in
-    notificationIntervalRef.current = setInterval(() => {
-      fetchNotifications();
-    }, 30000); // Changed from 10000 (10s) to 30000 (30s)
-
-    // Cleanup function
-    return () => {
-      if (notificationIntervalRef.current) {
-        clearInterval(notificationIntervalRef.current);
-        notificationIntervalRef.current = null;
-      }
-    };
-  }, [user?.id]); // Only depend on user.id, not the entire user object
-
-  // Router
-  const renderPage = () => {
-    switch (currentPage) {
-      case "dashboard":
-        return (
-          <Dashboard
-            user={user!}
-            onNavigate={(page) => setCurrentPage(page as Page)}
-          />
-        );
-      case "complaints":
-        return <Complaints user={user!} />;
-      case "services":
-        return <Services user={user!} />;
-      case "events":
-        return (
-          <Events
-            user={user!}
-            onNavigate={(page) => setCurrentPage(page as Page)}
-          />
-        );
-      case "announcements":
-        return <Announcements user={user!} />;
-      case "notifications":
-        return <Notifications user={user!} />;
-      case "profile":
-        return <Profile user={user!} onUpdate={setUser} />;
-      case "help":
-        return <Help />;
-
-      // Admin Routes
-      case "admin-users":
-        return user?.role === "admin" ? (
-          <AdminUsers />
-        ) : (
-          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
-        );
-      case "admin-audit-logs":
-        return user?.role === "admin" ? (
-          <AdminAuditLogs />
-        ) : (
-          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
-        );
-      case "admin-config":
-        return user?.role === "admin" ? (
-          <AdminConfig onSettingsUpdate={refreshSiteSettings} />
-        ) : (
-          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
-        );
-      case "admin-news":
-        return user?.role === "admin" || user?.role === "staff" ? (
-          <AdminNews />
-        ) : (
-          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
-        );
-      case "admin-calendar":
-        return user?.role === "admin" || user?.role === "staff" ? (
-          <AdminCalendar />
-        ) : (
-          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
-        );
-      case "admin-content":
-        return user?.role === "admin" || user?.role === "staff" ? (
-          <AdminContent />
-        ) : (
-          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
-        );
-
-      default:
-        return <NotFound onGoHome={() => setCurrentPage("dashboard")} />;
-    }
-  };
-
-  // Layout Component
-  const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
+  return (
     <div
       className="min-h-screen bg-gray-50 flex"
       onClick={() => setShowNotifDropdown(false)}
     >
-      {/* ToastContainer is rendered by ToastProvider at the app root */}
-
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-gray-200 fixed h-full z-10 shadow-sm">
         <div
@@ -637,28 +520,165 @@ export default function App() {
       </main>
     </div>
   );
+};
 
-  const NavButton = ({ active, onClick, icon, children }: any) => (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
-        active
-          ? "bg-primary-50 text-primary-700"
-          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-      }`}
-    >
-      <span
-        className={`mr-3 ${
-          active
-            ? "text-primary-600"
-            : "text-gray-400 group-hover:text-gray-500"
-        }`}
-      >
-        {icon}
-      </span>
-      {children}
-    </button>
-  );
+export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState<Page>("landing");
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
+  const { showToast } = useToast();
+
+  // Notification State
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [recentNotifs, setRecentNotifs] = useState<Notification[]>([]);
+
+  // Use ref to track if interval is already set to prevent duplicates
+  const notificationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const settings = await api.getPublicSiteSettings();
+        setSiteSettings(settings);
+      } catch (err) {
+        console.warn(
+          "Could not load admin site settings (may be admin-only):",
+          err
+        );
+        // Use a lightweight/default fallback so UI has a name and logo can be absent.
+        setSiteSettings({
+          id: "default",
+          barangayName: "iBarangay",
+          logoUrl: "",
+          contactEmail: "",
+          contactPhone: "",
+          address: "",
+          facebookUrl: "",
+          twitterUrl: "",
+        });
+      }
+    })();
+  }, []);
+
+  // Refresh site settings when admin config is updated
+  const refreshSiteSettings = async () => {
+    try {
+      const settings = await api.getPublicSiteSettings();
+      setSiteSettings(settings);
+    } catch (err) {
+      console.warn("Could not refresh site settings:", err);
+    }
+  };
+
+  useEffect(() => {
+    // Clear any existing interval first
+    if (notificationIntervalRef.current) {
+      clearInterval(notificationIntervalRef.current);
+      notificationIntervalRef.current = null;
+    }
+
+    if (!user) return;
+
+    // Initial fetch
+    const fetchNotifications = async () => {
+      try {
+        const notifs = await api.getNotifications(user.id);
+        setRecentNotifs(notifs.slice(0, 5));
+        setUnreadCount(notifs.filter((n) => !n.isRead).length);
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+      }
+    };
+
+    fetchNotifications();
+
+    // Set up polling interval (increased to 30 seconds to reduce server load)
+    // Only poll if user is logged in
+    notificationIntervalRef.current = setInterval(() => {
+      fetchNotifications();
+    }, 30000); // Changed from 10000 (10s) to 30000 (30s)
+
+    // Cleanup function
+    return () => {
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+        notificationIntervalRef.current = null;
+      }
+    };
+  }, [user?.id]); // Only depend on user.id, not the entire user object
+
+  // Router
+  const renderPage = () => {
+    switch (currentPage) {
+      case "dashboard":
+        return (
+          <Dashboard
+            user={user!}
+            onNavigate={(page) => setCurrentPage(page as Page)}
+          />
+        );
+      case "complaints":
+        return <Complaints user={user!} />;
+      case "services":
+        return <Services user={user!} />;
+      case "events":
+        return (
+          <Events
+            user={user!}
+            onNavigate={(page) => setCurrentPage(page as Page)}
+          />
+        );
+      case "announcements":
+        return <Announcements user={user!} />;
+      case "notifications":
+        return <Notifications user={user!} />;
+      case "profile":
+        return <Profile user={user!} onUpdate={setUser} />;
+      case "help":
+        return <Help />;
+
+      // Admin Routes
+      case "admin-users":
+        return user?.role === "admin" ? (
+          <AdminUsers />
+        ) : (
+          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
+        );
+      case "admin-audit-logs":
+        return user?.role === "admin" ? (
+          <AdminAuditLogs />
+        ) : (
+          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
+        );
+      case "admin-config":
+        return user?.role === "admin" ? (
+          <AdminConfig onSettingsUpdate={refreshSiteSettings} />
+        ) : (
+          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
+        );
+      case "admin-news":
+        return user?.role === "admin" || user?.role === "staff" ? (
+          <AdminNews />
+        ) : (
+          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
+        );
+      case "admin-calendar":
+        return user?.role === "admin" || user?.role === "staff" ? (
+          <AdminCalendar />
+        ) : (
+          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
+        );
+      case "admin-content":
+        return user?.role === "admin" || user?.role === "staff" ? (
+          <AdminContent />
+        ) : (
+          <NotFound onGoHome={() => setCurrentPage("dashboard")} />
+        );
+
+      default:
+        return <NotFound onGoHome={() => setCurrentPage("dashboard")} />;
+    }
+  };
 
   // Unauthenticated Routes
   if (!user) {
@@ -693,5 +713,18 @@ export default function App() {
     );
   }
 
-  return <Layout>{renderPage()}</Layout>;
+  return (
+    <Layout
+      user={user}
+      setUser={setUser}
+      currentPage={currentPage}
+      setCurrentPage={setCurrentPage}
+      siteSettings={siteSettings}
+      unreadCount={unreadCount}
+      setUnreadCount={setUnreadCount}
+      recentNotifs={recentNotifs}
+    >
+      {renderPage()}
+    </Layout>
+  );
 }

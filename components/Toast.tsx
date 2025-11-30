@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   X,
   CheckCircle2,
@@ -207,63 +207,73 @@ export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({
 }) => {
   const [toasts, setToasts] = React.useState<ToastProps[]>([]);
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
-  const showToast = (
-    title: string,
-    message: string,
-    type: ToastType = "info",
-    duration: number = 4000
-  ) => {
-    // Check if a toast with the same title, message, and type already exists
-    const isDuplicate = toasts.some(
-      (t) => t.title === title && t.message === message && t.type === type
-    );
+  const showToast = useCallback(
+    (
+      title: string,
+      message: string,
+      type: ToastType = "info",
+      duration: number = 4000
+    ) => {
+      // Check if a toast with the same title, message, and type already exists
+      const isDuplicate = toasts.some(
+        (t) => t.title === title && t.message === message && t.type === type
+      );
 
-    if (isDuplicate) {
-      // If duplicate exists, just reset its progress by removing and re-adding it
+      if (isDuplicate) {
+        // If duplicate exists, just reset its progress by removing and re-adding it
+        setToasts((prev) => {
+          const filtered = prev.filter(
+            (t) =>
+              !(t.title === title && t.message === message && t.type === type)
+          );
+          const id = `toast-${Date.now()}-${Math.random()
+            .toString(36)
+            .substr(2, 9)}`;
+          const newToast: ToastProps = {
+            id,
+            title,
+            message,
+            type,
+            duration,
+            onClose: removeToast,
+          };
+          return [...filtered, newToast].slice(-4);
+        });
+        return;
+      }
+
+      const id = `toast-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const newToast: ToastProps = {
+        id,
+        title,
+        message,
+        type,
+        duration,
+        onClose: removeToast,
+      };
+
+      // Limit to 4 toasts at a time
       setToasts((prev) => {
-        const filtered = prev.filter(
-          (t) =>
-            !(t.title === title && t.message === message && t.type === type)
-        );
-        const id = `toast-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        const newToast: ToastProps = {
-          id,
-          title,
-          message,
-          type,
-          duration,
-          onClose: removeToast,
-        };
-        return [...filtered, newToast].slice(-4);
+        const updated = [...prev, newToast];
+        return updated.slice(-4);
       });
-      return;
-    }
+    },
+    [toasts, removeToast]
+  );
 
-    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const newToast: ToastProps = {
-      id,
-      title,
-      message,
-      type,
-      duration,
-      onClose: removeToast,
-    };
-
-    // Limit to 4 toasts at a time
-    setToasts((prev) => {
-      const updated = [...prev, newToast];
-      return updated.slice(-4);
-    });
-  };
+  const contextValue = useMemo(
+    () => ({ showToast, removeToast }),
+    [showToast, removeToast]
+  );
 
   return (
-    <ToastContext.Provider value={{ showToast, removeToast }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </ToastContext.Provider>

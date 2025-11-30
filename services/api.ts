@@ -70,13 +70,17 @@ const apiRequest = async (
 
   const url = `${API_URL}${endpoint}`;
   const method = options.method || "GET";
-  
+
   // Create a unique key for this request (URL + method + body)
   const requestKey = `${method}:${url}:${options.body || ""}`;
-  
+
   // Check if this exact request is already in flight (only for GET requests by default)
   // Skip deduplication for POST/PUT/DELETE or if explicitly requested
-  if (!options.skipDedup && method === "GET" && pendingRequests.has(requestKey)) {
+  if (
+    !options.skipDedup &&
+    method === "GET" &&
+    pendingRequests.has(requestKey)
+  ) {
     console.log(`[API] Deduplicating request: ${requestKey}`);
     return pendingRequests.get(requestKey);
   }
@@ -227,8 +231,8 @@ class ApiService {
     const data = await apiRequest("/complaints");
     return data.map((item: any) => ({
       id: item._id,
-      userId: item.userId._id || item.userId,
-      user: item.userId._id
+      userId: item.userId?._id || item.userId,
+      user: item.userId?._id
         ? {
             id: item.userId._id,
             firstName: item.userId.firstName,
@@ -268,14 +272,14 @@ class ApiService {
 
     return {
       id: data._id,
-      userId: data.userId._id,
+      userId: data.userId?._id,
       user: {
-        id: data.userId._id,
-        firstName: data.userId.firstName,
-        lastName: data.userId.lastName,
-        email: data.userId.email,
-        role: data.userId.role,
-        avatar: data.userId.avatar,
+        id: data.userId?._id,
+        firstName: data.userId?.firstName,
+        lastName: data.userId?.lastName,
+        email: data.userId?.email,
+        role: data.userId?.role,
+        avatar: data.userId?.avatar,
       },
       title: data.title,
       description: data.description,
@@ -326,8 +330,8 @@ class ApiService {
     const data = await apiRequest("/services");
     return data.map((item: any) => ({
       id: item._id,
-      userId: item.userId._id || item.userId,
-      user: item.userId._id
+      userId: item.userId?._id || item.userId,
+      user: item.userId?._id
         ? {
             id: item.userId._id,
             firstName: item.userId.firstName,
@@ -364,14 +368,14 @@ class ApiService {
 
     return {
       id: data._id,
-      userId: data.userId._id,
+      userId: data.userId?._id,
       user: {
-        id: data.userId._id,
-        firstName: data.userId.firstName,
-        lastName: data.userId.lastName,
-        email: data.userId.email,
-        role: data.userId.role,
-        avatar: data.userId.avatar,
+        id: data.userId?._id,
+        firstName: data.userId?.firstName,
+        lastName: data.userId?.lastName,
+        email: data.userId?.email,
+        role: data.userId?.role,
+        avatar: data.userId?.avatar,
       },
       requestType: data.requestType || "Equipment",
       itemName: data.itemName,
@@ -774,14 +778,16 @@ class ApiService {
     const data = await apiRequest("/admin/audit-logs");
     return data.map((item: any) => ({
       id: item._id,
-      userId: item.userId._id,
-      user: {
-        id: item.userId._id,
-        firstName: item.userId.firstName,
-        lastName: item.userId.lastName,
-        email: item.userId.email,
-        role: item.userId.role,
-      },
+      userId: item.userId?._id,
+      user: item.userId?._id
+        ? {
+            id: item.userId._id,
+            firstName: item.userId.firstName,
+            lastName: item.userId.lastName,
+            email: item.userId.email,
+            role: item.userId.role,
+          }
+        : undefined,
       action: item.action,
       resource: item.resource,
       timestamp: item.createdAt,

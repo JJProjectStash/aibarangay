@@ -93,6 +93,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     "Full Day (6:00 AM - 10:00 PM)",
   ];
 
+  // Check if user is admin or staff
+  const isAdminOrStaff = user.role === "admin" || user.role === "staff";
+
   useEffect(() => {
     fetchServices();
   }, []);
@@ -310,13 +313,24 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     }
   };
 
+  // Admin/Staff see all services, regular users see only their own
+  const displayServices = isAdminOrStaff
+    ? filteredServices
+    : filteredServices.filter((s) => s.userId === user.id);
+
   const myServices = filteredServices.filter((s) => s.userId === user.id);
 
   const stats = {
-    total: myServices.length,
-    pending: myServices.filter((s) => s.status === "pending").length,
-    approved: myServices.filter((s) => s.status === "approved").length,
-    borrowed: myServices.filter((s) => s.status === "borrowed").length,
+    total: isAdminOrStaff ? filteredServices.length : myServices.length,
+    pending: (isAdminOrStaff ? filteredServices : myServices).filter(
+      (s) => s.status === "pending"
+    ).length,
+    approved: (isAdminOrStaff ? filteredServices : myServices).filter(
+      (s) => s.status === "approved"
+    ).length,
+    borrowed: (isAdminOrStaff ? filteredServices : myServices).filter(
+      (s) => s.status === "borrowed"
+    ).length,
   };
 
   // Get today's date in YYYY-MM-DD format for min date
@@ -347,7 +361,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
             Equipment & Facility Requests
           </h1>
           <p className="text-gray-500">
-            Request equipment or reserve facilities for your events
+            {isAdminOrStaff
+              ? "Manage equipment and facility requests"
+              : "Request equipment or reserve facilities for your events"}
           </p>
         </div>
         <Button onClick={() => setCreateModal(true)}>
@@ -491,7 +507,7 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
 
       {/* Services List */}
       <div className="space-y-4">
-        {filteredServices.length === 0 ? (
+        {displayServices.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -523,7 +539,7 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
             </CardContent>
           </Card>
         ) : (
-          myServices.map((service) => (
+          displayServices.map((service) => (
             <Card
               key={service.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
