@@ -3,7 +3,7 @@ import { Calendar, MapPin, Users, Clock, Eye } from "lucide-react";
 import { Button, Card, CardContent, Badge } from "../components/UI";
 import EventRegisteredModal from "../components/EventRegisteredModal";
 import { api } from "../services/api";
-import { useToast } from '../components/Toast';
+import { useToast } from "../components/Toast";
 import { Event, User as UserType } from "../types";
 
 interface EventsProps {
@@ -31,14 +31,13 @@ const Events: React.FC<EventsProps> = ({ user, onNavigate }) => {
   }, []);
 
   const handleRegister = async (eventId: string) => {
-    const { showToast } = useToast();
     try {
       await api.registerForEvent(eventId, user.id);
-      showToast('Success', 'Successfully registered for event', 'success');
+      showToast("Success", "Successfully registered for event", "success");
       fetchEvents();
     } catch (err) {
-      console.error('Event registration failed', err);
-      showToast('Error', 'Failed to register for event', 'error');
+      console.error("Event registration failed", err);
+      showToast("Error", "Failed to register for event", "error");
     }
   };
 
