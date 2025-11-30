@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { Home, Lock, Mail, User, ShieldCheck, Users } from "lucide-react";
+import {
+  Home,
+  Mail,
+  User,
+  ShieldCheck,
+  Users,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Button, Card, CardContent, Input, Label } from "../components/UI";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
@@ -7,11 +15,13 @@ import { User as UserType } from "../types";
 
 interface LoginProps {
   onLogin: (user: UserType) => void;
+  onNavigateToSignup?: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>(
     {}
@@ -168,8 +178,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   Email Address
                 </Label>
                 <div className="relative">
-                  <div className="absolute left-3 top-3 pointer-events-none">
-                    <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-primary-500 transition-colors duration-200" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Mail className="w-5 h-5 text-gray-400" />
                   </div>
                   <Input
                     id="email"
@@ -207,21 +217,32 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     Forgot password?
                   </a>
                 </div>
-                <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary-500 transition-colors duration-200" />
+                <div className="relative">
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     onBlur={handlePasswordBlur}
                     placeholder="••••••••"
-                    className="h-12 pl-10 bg-gray-50 border-gray-200 focus:bg-white transition-all"
+                    className="h-12 pr-10 bg-gray-50 border-gray-200 focus:bg-white transition-all"
                     error={touched.password ? errors.password : ""}
                     disabled={loading}
                     autoComplete="current-password"
                     maxLength={128}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -238,6 +259,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {loading ? "Signing In..." : "Sign In"}
               </Button>
             </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600">
+                Don't have an account?{" "}
+                <button
+                  onClick={onNavigateToSignup}
+                  className="text-primary-600 hover:text-primary-800 font-semibold hover:underline transition-colors"
+                  type="button"
+                >
+                  Sign up here
+                </button>
+              </p>
+            </div>
 
             <div className="mt-8 pt-6 border-t border-gray-100">
               <p className="text-xs text-center text-gray-400 mb-4 font-semibold uppercase tracking-wider">
