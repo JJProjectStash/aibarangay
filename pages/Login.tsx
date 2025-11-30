@@ -11,9 +11,15 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [touched, setTouched] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
+  const [touched, setTouched] = useState<{
+    email?: boolean;
+    password?: boolean;
+  }>({});
 
   const { showToast } = useToast();
 
@@ -29,37 +35,69 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     return "";
   };
 
+  const validatePassword = (password: string): string => {
+    if (!password) {
+      return "Password is required";
+    }
+    if (password.length < 8) {
+      return "Password must be at least 8 characters";
+    }
+    return "";
+  };
+
   const handleEmailChange = (value: string) => {
-    setEmail(value);
-    if (touched) {
-      const validationError = validateEmail(value);
-      setError(validationError);
+    // Sanitize: remove leading/trailing spaces, convert to lowercase
+    const sanitized = value.trim().toLowerCase();
+    setEmail(sanitized);
+    if (touched.email) {
+      const validationError = validateEmail(sanitized);
+      setErrors({ ...errors, email: validationError });
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (touched.password) {
+      const validationError = validatePassword(value);
+      setErrors({ ...errors, password: validationError });
     }
   };
 
   const handleEmailBlur = () => {
-    setTouched(true);
+    setTouched({ ...touched, email: true });
     const validationError = validateEmail(email);
-    setError(validationError);
+    setErrors({ ...errors, email: validationError });
+  };
+
+  const handlePasswordBlur = () => {
+    setTouched({ ...touched, password: true });
+    const validationError = validatePassword(password);
+    setErrors({ ...errors, password: validationError });
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const trimmedEmail = email.trim().toLowerCase();
-    const validationError = validateEmail(trimmedEmail);
+    const emailError = validateEmail(trimmedEmail);
+    const passwordError = validatePassword(password);
 
-    if (validationError) {
-      setError(validationError);
-      setTouched(true);
+    if (emailError || passwordError) {
+      setErrors({ email: emailError, password: passwordError });
+      setTouched({ email: true, password: true });
+      showToast(
+        "Validation Error",
+        "Please fix the errors in the form",
+        "error"
+      );
       return;
     }
 
     setLoading(true);
-    setError("");
+    setErrors({});
 
     try {
-      const user = await api.login(trimmedEmail);
+      const user = await api.login(trimmedEmail, password);
       if (user) {
         showToast(
           "Welcome Back!",
@@ -69,14 +107,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         );
         setTimeout(() => onLogin(user), 500);
       } else {
-        const errorMsg = "User not found. Try the demo accounts below.";
-        setError(errorMsg);
+        const errorMsg = "Invalid email or password. Please try again.";
+        setErrors({ email: errorMsg });
         showToast("Login Failed", errorMsg, "error");
       }
-    } catch (err) {
-      const errorMsg = "Connection error. Please try again.";
-      setError(errorMsg);
-      showToast("Connection Error", errorMsg, "error");
+    } catch (err: any) {
+      const errorMsg =
+        err?.message ||
+        "Login failed. Please check your credentials and try again.";
+      setErrors({ email: errorMsg });
+      showToast("Login Error", errorMsg, "error");
     } finally {
       setLoading(false);
     }
@@ -85,13 +125,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const fillDemoCreds = (role: string) => {
     const demoEmail = `${role}@ibarangay.com`;
     setEmail(demoEmail);
-    setError("");
-    setTouched(false);
+    setPassword(""); // Demo accounts don't need password for testing
+    setErrors({});
+    setTouched({});
     showToast(
       "Demo Account",
-      `${role.charAt(0).toUpperCase() + role.slice(1)} credentials loaded`,
+      `${
+        role.charAt(0).toUpperCase() + role.slice(1)
+      } credentials loaded. For demo purposes, password is not required.`,
       "info",
-      2000
+      3000
     );
   };
 
@@ -136,7 +179,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     onBlur={handleEmailBlur}
                     placeholder="name@ibarangay.com"
                     className="h-12 pl-10 bg-gray-50 border-gray-200 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
-                    error={touched && error ? error : ""}
+                    error={touched.email ? errors.email : ""}
                     disabled={loading}
                     autoComplete="email"
                     maxLength={100}
@@ -169,22 +212,28 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <Input
                     id="password"
                     type="password"
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    onBlur={handlePasswordBlur}
                     placeholder="••••••••"
                     className="h-12 pl-10 bg-gray-50 border-gray-200 focus:bg-white transition-all"
-                    disabled
+                    error={touched.password ? errors.password : ""}
+                    disabled={loading}
                     autoComplete="current-password"
+                    maxLength={128}
                   />
                 </div>
-                <p className="text-xs text-gray-500 italic">
-                  Demo: Password not required
-                </p>
               </div>
 
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-bold shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                 isLoading={loading}
-                disabled={loading || (touched && !!error)}
+                disabled={
+                  loading ||
+                  (touched.email && !!errors.email) ||
+                  (touched.password && !!errors.password)
+                }
               >
                 {loading ? "Signing In..." : "Sign In"}
               </Button>
@@ -223,6 +272,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <span className="text-xs font-medium">Admin</span>
                 </button>
               </div>
+              <p className="text-xs text-center text-gray-500 mt-3 italic">
+                Demo accounts are for testing purposes only
+              </p>
             </div>
           </CardContent>
         </Card>
