@@ -12,6 +12,9 @@ import {
   ChevronRight,
   Phone,
   X,
+  Sparkles,
+  Zap,
+  Heart,
 } from "lucide-react";
 import { Button, Card, CardContent, Badge, Modal } from "../components/UI";
 import { SharedCalendar } from "../components/SharedCalendar";
@@ -108,13 +111,13 @@ const Landing: React.FC<LandingProps> = ({
   return (
     <div className="min-h-screen bg-white font-sans selection:bg-primary-100 selection:text-primary-900">
       {/* Nav */}
-      <nav className="border-b border-gray-100 sticky top-0 bg-white/90 backdrop-blur-md z-40 transition-all">
+      <nav className="border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-md z-40 transition-all shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => window.scrollTo(0, 0)}
+            className="flex items-center gap-3 cursor-pointer group"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
-            <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary-500/30 overflow-hidden">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-primary-500/30 overflow-hidden group-hover:scale-110 transition-transform duration-300">
               {displayLogo ? (
                 <img
                   src={displayLogo}
@@ -125,7 +128,7 @@ const Landing: React.FC<LandingProps> = ({
                 "i"
               )}
             </div>
-            <span className="text-xl font-bold text-gray-900 tracking-tight">
+            <span className="text-xl font-bold text-gray-900 tracking-tight group-hover:text-primary-600 transition-colors">
               {displayName}
             </span>
           </div>
@@ -133,13 +136,13 @@ const Landing: React.FC<LandingProps> = ({
             <Button
               variant="ghost"
               onClick={onLogin}
-              className="text-gray-600 font-medium hover:text-primary-600 hover:bg-primary-50"
+              className="text-gray-600 font-medium hover:text-primary-600 hover:bg-primary-50 transition-all"
             >
               Sign In
             </Button>
             <Button
               onClick={onSignup}
-              className="font-medium shadow-md shadow-primary-500/20 hover:shadow-lg hover:shadow-primary-500/30 transition-all"
+              className="font-medium shadow-md shadow-primary-500/20 hover:shadow-lg hover:shadow-primary-500/30 transition-all hover:scale-105 active:scale-95"
             >
               Get Started
             </Button>
@@ -148,9 +151,9 @@ const Landing: React.FC<LandingProps> = ({
       </nav>
 
       {/* Hero */}
-      <div className="relative overflow-hidden bg-primary-900 pt-20 pb-32 text-white">
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-teal-900 pt-20 pb-32 text-white">
         {requiresSignIn && (
-          <div className="absolute top-4 right-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-3 rounded shadow z-50">
+          <div className="absolute top-4 right-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-3 rounded shadow-lg z-50 animate-slide-up">
             <div className="text-sm font-medium">
               Some content on this page requires authentication.
             </div>
@@ -163,35 +166,51 @@ const Landing: React.FC<LandingProps> = ({
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-primary-900 to-teal-900" />
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
 
+        {/* Animated background blobs */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float"></div>
+          <div
+            className="absolute -bottom-40 -left-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float"
+            style={{ animationDelay: "1s" }}
+          ></div>
+        </div>
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
           <Badge
             variant="primary"
-            className="bg-white/10 text-primary-50 border border-white/10 mb-6 backdrop-blur-sm px-4 py-1.5 text-sm uppercase tracking-wide font-semibold shadow-sm"
+            className="bg-white/10 text-primary-50 border border-white/10 mb-6 backdrop-blur-sm px-4 py-1.5 text-sm uppercase tracking-wide font-semibold shadow-sm animate-slide-up"
           >
+            <Sparkles className="w-4 h-4 mr-1 inline" />
             Official Barangay Portal
           </Badge>
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl text-white mb-6 leading-tight drop-shadow-sm">
+          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl text-white mb-6 leading-tight drop-shadow-lg animate-slide-up">
             Digital Services for a<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-200 to-teal-200">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-200 via-teal-200 to-primary-300 animate-shimmer">
               Better Community
             </span>
           </h1>
-          <p className="mt-4 max-w-2xl text-xl text-primary-100 leading-relaxed font-light">
+          <p
+            className="mt-4 max-w-2xl text-xl text-primary-100 leading-relaxed font-light animate-slide-up"
+            style={{ animationDelay: "0.1s" }}
+          >
             Stay connected. Access services, file complaints, and get the latest
             updates anytime, anywhere with the new {displayName} system.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <div
+            className="mt-10 flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-slide-up"
+            style={{ animationDelay: "0.2s" }}
+          >
             <Button
               size="lg"
               onClick={onSignup}
-              className="h-14 px-8 text-lg bg-white text-primary-900 hover:bg-primary-50 shadow-xl shadow-primary-900/20 font-bold"
+              className="h-14 px-8 text-lg bg-white text-primary-900 hover:bg-primary-50 shadow-xl shadow-primary-900/20 font-bold hover:scale-105 active:scale-95 transition-all duration-300"
             >
               Register Now <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
             <Button
               variant="outline"
               size="lg"
-              className="h-14 px-8 text-lg border-white/30 text-white hover:bg-white/10 backdrop-blur-sm"
+              className="h-14 px-8 text-lg border-2 border-white/30 text-white hover:bg-white/10 backdrop-blur-sm hover:border-white/50 transition-all duration-300"
               onClick={onLogin}
             >
               Member Login
@@ -209,26 +228,30 @@ const Landing: React.FC<LandingProps> = ({
               title: "Secure & Verified",
               text: "Only verified residents can access sensitive services.",
               color: "blue",
+              gradient: "from-blue-500 to-blue-600",
             },
             {
               icon: <Activity className="w-8 h-8" />,
               title: "Real-time Updates",
               text: "Track complaints and requests with instant notifications.",
               color: "teal",
+              gradient: "from-teal-500 to-teal-600",
             },
             {
               icon: <Users className="w-8 h-8" />,
               title: "Community First",
               text: "Bridging the gap between officials and residents.",
               color: "purple",
+              gradient: "from-purple-500 to-purple-600",
             },
           ].map((feat, idx) => (
             <div
               key={idx}
-              className="bg-white rounded-2xl p-8 shadow-xl shadow-gray-200/50 border border-gray-100 flex items-start gap-4 transform hover:-translate-y-1 transition-all duration-300"
+              className="bg-white rounded-2xl p-8 shadow-xl shadow-gray-200/50 border border-gray-100 flex items-start gap-4 transform hover:-translate-y-2 transition-all duration-300 card-hover animate-slide-up"
+              style={{ animationDelay: `${idx * 0.1}s` }}
             >
               <div
-                className={`p-3 rounded-xl text-${feat.color}-600 bg-${feat.color}-50`}
+                className={`p-3 rounded-xl bg-gradient-to-br ${feat.gradient} text-white shadow-lg`}
               >
                 {feat.icon}
               </div>
@@ -246,12 +269,14 @@ const Landing: React.FC<LandingProps> = ({
       </div>
 
       {/* Latest News Section */}
-      <div className="py-20 bg-white">
+      <div className="py-20 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Newspaper className="w-8 h-8 text-primary-600" />
+                <div className="p-2 bg-primary-50 rounded-lg">
+                  <Newspaper className="w-8 h-8 text-primary-600" />
+                </div>
                 Community News
               </h2>
               <p className="text-gray-500 mt-2 text-lg">
@@ -260,31 +285,36 @@ const Landing: React.FC<LandingProps> = ({
             </div>
             <Button
               variant="ghost"
-              className="text-primary-600 hover:text-primary-700 font-semibold"
+              className="text-primary-600 hover:text-primary-700 font-semibold hover:bg-primary-50 transition-all"
               onClick={() => onNavigate && onNavigate("news")}
             >
-              View All News →
+              View All News <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
 
           {loading ? (
-            <div className="text-center py-12">Loading news...</div>
+            <div className="text-center py-12">
+              <div className="inline-block w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
+              <p className="text-gray-500 mt-4">Loading news...</p>
+            </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {news.map((item) => (
+              {news.map((item, idx) => (
                 <div
                   key={item.id}
-                  className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden"
+                  className="group cursor-pointer flex flex-col h-full bg-white rounded-2xl hover:shadow-2xl transition-all duration-500 border border-gray-100 overflow-hidden card-hover animate-slide-up"
+                  style={{ animationDelay: `${idx * 0.1}s` }}
                   onClick={() => setSelectedNews(item)}
                 >
                   <div className="aspect-video relative overflow-hidden">
                     <img
                       src={item.imageUrl}
                       alt={item.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60" />
-                    <span className="absolute bottom-4 left-4 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-70 group-hover:opacity-90 transition-opacity" />
+                    <span className="absolute bottom-4 left-4 text-white text-xs font-medium bg-black/50 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                      <Clock className="w-3 h-3 inline mr-1" />
                       {new Date(item.publishedAt).toLocaleDateString()}
                     </span>
                   </div>
@@ -299,7 +329,7 @@ const Landing: React.FC<LandingProps> = ({
                       <span className="text-xs text-gray-400 font-medium">
                         By {item.author}
                       </span>
-                      <button className="text-primary-600 font-bold text-sm flex items-center hover:underline">
+                      <button className="text-primary-600 font-bold text-sm flex items-center hover:underline group-hover:translate-x-1 transition-transform">
                         Read Story <ChevronRight className="w-4 h-4 ml-1" />
                       </button>
                     </div>
@@ -312,11 +342,13 @@ const Landing: React.FC<LandingProps> = ({
       </div>
 
       {/* Community Calendar Section */}
-      <div className="py-20 bg-gray-50 border-y border-gray-100">
+      <div className="py-20 bg-white border-y border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-3">
-              <Calendar className="w-8 h-8 text-primary-600" />
+              <div className="p-2 bg-primary-50 rounded-lg">
+                <Calendar className="w-8 h-8 text-primary-600" />
+              </div>
               Community Calendar
             </h2>
             <p className="text-gray-500 mt-3 text-lg">
@@ -325,31 +357,31 @@ const Landing: React.FC<LandingProps> = ({
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 shadow-lg rounded-xl overflow-hidden border border-gray-200">
+            <div className="lg:col-span-2 shadow-xl rounded-xl overflow-hidden border border-gray-200">
               <SharedCalendar events={events} readOnly />
             </div>
             <div className="space-y-4">
               <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary-500" /> Upcoming
-                Highlights
+                <Zap className="w-5 h-5 text-primary-500" /> Upcoming Highlights
               </h3>
-              {events.slice(0, 3).map((event) => (
+              {events.slice(0, 3).map((event, idx) => (
                 <Card
                   key={event.id}
-                  className="border-none shadow-md hover:shadow-lg transition-shadow bg-white"
+                  className="border-none shadow-md hover:shadow-xl transition-all duration-300 bg-white card-hover animate-slide-up"
+                  style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <CardContent className="p-4 flex gap-4 items-start">
-                    <div className="bg-primary-50 text-primary-700 rounded-lg p-3 text-center min-w-[60px] border border-primary-100">
+                    <div className="bg-gradient-to-br from-primary-50 to-primary-100 text-primary-700 rounded-lg p-3 text-center min-w-[60px] border border-primary-200 shadow-sm">
                       <div className="text-xs font-bold uppercase">
                         {new Date(event.eventDate).toLocaleString("default", {
                           month: "short",
                         })}
                       </div>
-                      <div className="text-xl font-bold">
+                      <div className="text-2xl font-bold">
                         {new Date(event.eventDate).getDate()}
                       </div>
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h4 className="font-bold text-gray-900 line-clamp-1 text-base">
                         {event.title}
                       </h4>
@@ -366,7 +398,7 @@ const Landing: React.FC<LandingProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="mt-3 h-7 text-xs"
+                        className="mt-3 h-7 text-xs hover:bg-primary-50 hover:text-primary-700 hover:border-primary-300 transition-all"
                         onClick={onLogin}
                       >
                         View Details
@@ -381,11 +413,13 @@ const Landing: React.FC<LandingProps> = ({
       </div>
 
       {/* Officials Section */}
-      <div className="py-20 bg-white">
+      <div className="py-20 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-3">
-              <Users className="w-8 h-8 text-primary-600" />
+              <div className="p-2 bg-primary-50 rounded-lg">
+                <Users className="w-8 h-8 text-primary-600" />
+              </div>
               Meet Your Officials
             </h2>
             <p className="text-gray-500 mt-3 text-lg">
@@ -394,12 +428,13 @@ const Landing: React.FC<LandingProps> = ({
           </div>
 
           <div className="grid md:grid-cols-4 gap-6">
-            {officials.map((official) => (
+            {officials.map((official, idx) => (
               <div
                 key={official.id}
-                className="bg-white border border-gray-100 rounded-xl p-6 text-center shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300"
+                className="bg-white border border-gray-100 rounded-xl p-6 text-center shadow-sm hover:shadow-2xl hover:-translate-y-3 transition-all duration-500 card-hover animate-slide-up"
+                style={{ animationDelay: `${idx * 0.1}s` }}
               >
-                <div className="w-24 h-24 rounded-full mx-auto p-1 border-2 border-primary-100 bg-white mb-4">
+                <div className="w-24 h-24 rounded-full mx-auto p-1 border-2 border-primary-100 bg-white mb-4 shadow-lg overflow-hidden">
                   <img
                     src={official.imageUrl}
                     alt={official.name}
@@ -419,12 +454,14 @@ const Landing: React.FC<LandingProps> = ({
       </div>
 
       {/* Announcements Section */}
-      <div className="py-20 bg-gray-50">
+      <div className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row gap-12">
             <div className="md:w-1/3">
               <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-4">
-                <Megaphone className="w-8 h-8 text-primary-600" />
+                <div className="p-2 bg-primary-50 rounded-lg">
+                  <Megaphone className="w-8 h-8 text-primary-600" />
+                </div>
                 Announcements
               </h2>
               <p className="text-gray-500 text-lg leading-relaxed mb-6">
@@ -433,18 +470,20 @@ const Landing: React.FC<LandingProps> = ({
               </p>
               <Button
                 variant="outline"
-                className="w-full sm:w-auto hover:bg-white hover:text-primary-600"
-                onClick={() => window.scrollTo(0, 0)}
+                className="w-full sm:w-auto hover:bg-primary-50 hover:text-primary-600 hover:border-primary-300 transition-all"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               >
+                <Heart className="w-4 h-4 mr-2" />
                 Subscribe to Alerts
               </Button>
             </div>
 
             <div className="md:w-2/3 space-y-4">
-              {announcements.map((announcement) => (
+              {announcements.map((announcement, idx) => (
                 <div
                   key={announcement.id}
-                  className="bg-white border-l-4 border-primary-500 pl-6 py-4 pr-4 relative shadow-sm rounded-r-lg hover:shadow-md transition-shadow"
+                  className="bg-white border-l-4 border-primary-500 pl-6 py-4 pr-4 relative shadow-md rounded-r-xl hover:shadow-xl transition-all duration-300 card-hover animate-slide-up"
+                  style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <Badge
@@ -476,21 +515,21 @@ const Landing: React.FC<LandingProps> = ({
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => onNavigate && onNavigate("hotlines")}
-          className="bg-red-600 text-white p-4 rounded-full shadow-lg shadow-red-600/30 hover:bg-red-700 hover:scale-110 transition-all group relative animate-bounce-slow"
+          className="bg-gradient-to-br from-red-600 to-red-700 text-white p-4 rounded-full shadow-2xl shadow-red-600/40 hover:shadow-red-600/60 hover:scale-110 transition-all duration-300 group relative animate-bounce-slow"
         >
           <Phone className="w-6 h-6" />
-          <span className="absolute right-full mr-4 bg-gray-900 text-white text-xs px-3 py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-medium top-1/2 -translate-y-1/2">
+          <span className="absolute right-full mr-4 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-medium top-1/2 -translate-y-1/2 shadow-xl">
             Emergency Hotlines
           </span>
         </button>
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-16">
+      <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-400 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-4 gap-12">
           <div className="col-span-2">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold overflow-hidden">
+              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold overflow-hidden shadow-lg">
                 {displayLogo ? (
                   <img
                     src={displayLogo}
@@ -513,7 +552,7 @@ const Landing: React.FC<LandingProps> = ({
               {["f", "t", "in"].map((social, idx) => (
                 <div
                   key={idx}
-                  className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-primary-600 hover:text-white transition-all cursor-pointer font-bold"
+                  className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-primary-600 hover:text-white transition-all cursor-pointer font-bold shadow-lg hover:scale-110 hover:shadow-primary-600/50"
                 >
                   {social}
                 </div>
