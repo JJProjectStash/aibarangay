@@ -161,6 +161,115 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     setFilteredServices(filtered);
   };
 
+  const validateField = (field: string, value: any) => {
+    const newErrors = { ...errors };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    switch (field) {
+      case "requestType":
+        if (!value) {
+          newErrors.requestType = "Please select request type";
+        } else {
+          delete newErrors.requestType;
+        }
+        break;
+
+      case "itemName":
+        if (!value.trim() || value.length < 3) {
+          newErrors.itemName = "Name must be at least 3 characters";
+        } else if (value.length > 100) {
+          newErrors.itemName = "Name must not exceed 100 characters";
+        } else {
+          delete newErrors.itemName;
+        }
+        break;
+
+      case "itemType":
+        if (!value) {
+          newErrors.itemType = "Please select a type";
+        } else {
+          delete newErrors.itemType;
+        }
+        break;
+
+      case "borrowDate":
+        if (!value) {
+          newErrors.borrowDate = "Please select a start date";
+        } else {
+          const borrowDate = new Date(value);
+          if (borrowDate < today) {
+            newErrors.borrowDate = "Start date cannot be in the past";
+          } else {
+            delete newErrors.borrowDate;
+            // Revalidate return date if it exists
+            if (formData.expectedReturnDate) {
+              validateField("expectedReturnDate", formData.expectedReturnDate);
+            }
+          }
+        }
+        break;
+
+      case "expectedReturnDate":
+        if (!value) {
+          newErrors.expectedReturnDate = "Please select an end date";
+        } else if (formData.borrowDate) {
+          const borrowDate = new Date(formData.borrowDate);
+          const returnDate = new Date(value);
+          if (returnDate <= borrowDate) {
+            newErrors.expectedReturnDate = "End date must be after start date";
+          } else {
+            const diffDays = Math.ceil(
+              (returnDate.getTime() - borrowDate.getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
+            if (diffDays > 30) {
+              newErrors.expectedReturnDate =
+                "Maximum period is 30 days. Please contact admin for longer periods.";
+            } else {
+              delete newErrors.expectedReturnDate;
+            }
+          }
+        }
+        break;
+
+      case "timeSlot":
+        if (formData.requestType === "Facility" && !value) {
+          newErrors.timeSlot = "Please select a time slot";
+        } else {
+          delete newErrors.timeSlot;
+        }
+        break;
+
+      case "numberOfPeople":
+        if (formData.requestType === "Facility") {
+          if (!value || parseInt(value) < 1) {
+            newErrors.numberOfPeople =
+              "Please enter number of people (minimum 1)";
+          } else if (parseInt(value) > 10000) {
+            newErrors.numberOfPeople = "Number of people cannot exceed 10,000";
+          } else {
+            delete newErrors.numberOfPeople;
+          }
+        } else {
+          delete newErrors.numberOfPeople;
+        }
+        break;
+
+      case "purpose":
+        if (!value.trim() || value.length < 10) {
+          newErrors.purpose = "Purpose must be at least 10 characters";
+        } else if (value.length > 500) {
+          newErrors.purpose = "Purpose must not exceed 500 characters";
+        } else {
+          delete newErrors.purpose;
+        }
+        break;
+    }
+
+    setErrors(newErrors);
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -198,7 +307,6 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
       if (returnDate <= borrowDate) {
         newErrors.expectedReturnDate = "End date must be after start date";
       }
-      // Check if duration is reasonable (max 30 days)
       const diffDays = Math.ceil(
         (returnDate.getTime() - borrowDate.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -716,8 +824,7 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                   timeSlot: "",
                   numberOfPeople: "",
                 });
-                if (errors.requestType)
-                  setErrors({ ...errors, requestType: "" });
+                validateField("requestType", e.target.value);
               }}
               error={errors.requestType}
             >
@@ -741,8 +848,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
               value={formData.itemName}
               onChange={(e) => {
                 setFormData({ ...formData, itemName: e.target.value });
-                if (errors.itemName) setErrors({ ...errors, itemName: "" });
+                validateField("itemName", e.target.value);
               }}
+              onBlur={(e) => validateField("itemName", e.target.value)}
               placeholder={
                 formData.requestType === "Equipment"
                   ? "e.g., Basketball, Sound System, Tent"
@@ -762,8 +870,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
               value={formData.itemType}
               onChange={(e) => {
                 setFormData({ ...formData, itemType: e.target.value });
-                if (errors.itemType) setErrors({ ...errors, itemType: "" });
+                validateField("itemType", e.target.value);
               }}
+              onBlur={(e) => validateField("itemType", e.target.value)}
               error={errors.itemType}
             >
               <option value="">Select type</option>
@@ -783,9 +892,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                 value={formData.borrowDate}
                 onChange={(e) => {
                   setFormData({ ...formData, borrowDate: e.target.value });
-                  if (errors.borrowDate)
-                    setErrors({ ...errors, borrowDate: "" });
+                  validateField("borrowDate", e.target.value);
                 }}
+                onBlur={(e) => validateField("borrowDate", e.target.value)}
                 min={today}
                 error={errors.borrowDate}
               />
@@ -801,9 +910,11 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                     ...formData,
                     expectedReturnDate: e.target.value,
                   });
-                  if (errors.expectedReturnDate)
-                    setErrors({ ...errors, expectedReturnDate: "" });
+                  validateField("expectedReturnDate", e.target.value);
                 }}
+                onBlur={(e) =>
+                  validateField("expectedReturnDate", e.target.value)
+                }
                 min={formData.borrowDate || today}
                 error={errors.expectedReturnDate}
               />
@@ -818,8 +929,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                   value={formData.timeSlot}
                   onChange={(e) => {
                     setFormData({ ...formData, timeSlot: e.target.value });
-                    if (errors.timeSlot) setErrors({ ...errors, timeSlot: "" });
+                    validateField("timeSlot", e.target.value);
                   }}
+                  onBlur={(e) => validateField("timeSlot", e.target.value)}
                   error={errors.timeSlot}
                 >
                   <option value="">Select time slot</option>
@@ -843,9 +955,11 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                       ...formData,
                       numberOfPeople: e.target.value,
                     });
-                    if (errors.numberOfPeople)
-                      setErrors({ ...errors, numberOfPeople: "" });
+                    validateField("numberOfPeople", e.target.value);
                   }}
+                  onBlur={(e) =>
+                    validateField("numberOfPeople", e.target.value)
+                  }
                   placeholder="e.g., 50"
                   error={errors.numberOfPeople}
                 />
@@ -859,8 +973,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
               value={formData.purpose}
               onChange={(e) => {
                 setFormData({ ...formData, purpose: e.target.value });
-                if (errors.purpose) setErrors({ ...errors, purpose: "" });
+                validateField("purpose", e.target.value);
               }}
+              onBlur={(e) => validateField("purpose", e.target.value)}
               placeholder={
                 formData.requestType === "Equipment"
                   ? "Describe the purpose of borrowing this equipment..."

@@ -177,7 +177,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   onClose,
 }) => {
   return (
-    <div className="fixed top-6 right-6 z-[9999] space-y-4 pointer-events-none max-w-[420px]">
+    <div className="fixed top-6 right-6 z-[99999] space-y-4 pointer-events-none max-w-[420px]">
       <div className="pointer-events-auto space-y-4">
         {toasts.map((toast) => (
           <Toast key={toast.id} {...toast} onClose={onClose} />

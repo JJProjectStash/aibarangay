@@ -135,6 +135,50 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
     setFilteredComplaints(filtered);
   };
 
+  const validateField = (field: string, value: any) => {
+    const newErrors = { ...errors };
+
+    switch (field) {
+      case "title":
+        if (!value.trim() || value.length < 5) {
+          newErrors.title = "Title must be at least 5 characters";
+        } else if (value.length > 100) {
+          newErrors.title = "Title must not exceed 100 characters";
+        } else {
+          delete newErrors.title;
+        }
+        break;
+
+      case "description":
+        if (!value.trim() || value.length < 20) {
+          newErrors.description = "Description must be at least 20 characters";
+        } else if (value.length > 1000) {
+          newErrors.description = "Description must not exceed 1000 characters";
+        } else {
+          delete newErrors.description;
+        }
+        break;
+
+      case "category":
+        if (!value) {
+          newErrors.category = "Please select a category";
+        } else {
+          delete newErrors.category;
+        }
+        break;
+
+      case "attachments":
+        if (attachments.length > 5) {
+          newErrors.attachments = "Maximum 5 attachments allowed";
+        } else {
+          delete newErrors.attachments;
+        }
+        break;
+    }
+
+    setErrors(newErrors);
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -327,11 +371,13 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
       return;
     }
     setAttachments([...attachments, base64]);
-    setErrors({ ...errors, attachments: "" });
+    validateField("attachments", [...attachments, base64]);
   };
 
   const removeAttachment = (index: number) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
+    const newAttachments = attachments.filter((_, i) => i !== index);
+    setAttachments(newAttachments);
+    validateField("attachments", newAttachments);
   };
 
   // Admin/Staff see all complaints, regular users see only their own
@@ -648,8 +694,9 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               value={formData.title}
               onChange={(e) => {
                 setFormData({ ...formData, title: e.target.value });
-                if (errors.title) setErrors({ ...errors, title: "" });
+                validateField("title", e.target.value);
               }}
+              onBlur={(e) => validateField("title", e.target.value)}
               placeholder="Brief summary of the issue"
               maxLength={100}
               error={errors.title}
@@ -665,9 +712,9 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               value={formData.description}
               onChange={(e) => {
                 setFormData({ ...formData, description: e.target.value });
-                if (errors.description)
-                  setErrors({ ...errors, description: "" });
+                validateField("description", e.target.value);
               }}
+              onBlur={(e) => validateField("description", e.target.value)}
               placeholder="Provide detailed information about the issue..."
               className="min-h-[120px]"
               maxLength={1000}
@@ -685,8 +732,9 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
                 value={formData.category}
                 onChange={(e) => {
                   setFormData({ ...formData, category: e.target.value });
-                  if (errors.category) setErrors({ ...errors, category: "" });
+                  validateField("category", e.target.value);
                 }}
+                onBlur={(e) => validateField("category", e.target.value)}
                 error={errors.category}
               >
                 <option value="">Select category</option>
