@@ -492,9 +492,40 @@ class ApiService {
     }));
   }
 
+  async createAnnouncement(
+    announcement: Omit<
+      Announcement,
+      "id" | "createdAt" | "views" | "isPublished" | "isPinned"
+    >
+  ): Promise<Announcement> {
+    const data = await apiRequest("/announcements", {
+      method: "POST",
+      body: JSON.stringify(announcement),
+    });
+
+    return {
+      id: data._id,
+      title: data.title,
+      content: data.content,
+      category: data.category,
+      priority: data.priority,
+      isPublished: data.isPublished,
+      isPinned: data.isPinned,
+      views: data.views,
+      createdAt: data.createdAt,
+      author: data.author,
+    };
+  }
+
   async toggleAnnouncementPin(id: string): Promise<void> {
     await apiRequest(`/announcements/${id}/pin`, {
       method: "PUT",
+    });
+  }
+
+  async deleteAnnouncement(id: string): Promise<void> {
+    await apiRequest(`/announcements/${id}`, {
+      method: "DELETE",
     });
   }
 

@@ -124,8 +124,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <Label htmlFor="email" className="text-gray-700 font-medium">
                   Email Address
                 </Label>
-                <div className="relative group">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary-500 transition-colors duration-200" />
+                <div className="relative">
+                  <div className="absolute left-3 top-3 pointer-events-none">
+                    <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-primary-500 transition-colors duration-200" />
+                  </div>
                   <Input
                     id="email"
                     type="email"
