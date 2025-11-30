@@ -12,6 +12,7 @@ import {
   Send,
   Image as ImageIcon,
   X,
+  User as UserIcon,
 } from "lucide-react";
 import {
   Button,
@@ -70,6 +71,9 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
     "Road",
     "Other",
   ];
+
+  // Check if user is admin or staff
+  const isAdminOrStaff = user.role === "admin" || user.role === "staff";
 
   useEffect(() => {
     fetchComplaints();
@@ -287,8 +291,12 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
+  // Admin/Staff see all complaints, regular users see only their own
+  const displayComplaints = isAdminOrStaff
+    ? filteredComplaints
+    : filteredComplaints.filter((c) => c.userId === user.id);
+
   const myComplaints = filteredComplaints.filter((c) => c.userId === user.id);
-  const allComplaints = filteredComplaints;
 
   const stats = {
     total: myComplaints.length,
@@ -305,7 +313,9 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
             Complaints & Reports
           </h1>
           <p className="text-gray-500">
-            Report issues and track their resolution
+            {isAdminOrStaff
+              ? "Manage and respond to all complaints"
+              : "Report issues and track their resolution"}
           </p>
         </div>
         <Button onClick={() => setCreateModal(true)}>
@@ -320,9 +330,11 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Total</p>
+                <p className="text-sm text-gray-500">
+                  {isAdminOrStaff ? "All Complaints" : "My Total"}
+                </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {stats.total}
+                  {isAdminOrStaff ? filteredComplaints.length : stats.total}
                 </p>
               </div>
               <MessageSquare className="w-8 h-8 text-gray-400" />
@@ -335,7 +347,10 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               <div>
                 <p className="text-sm text-gray-500">Pending</p>
                 <p className="text-2xl font-bold text-amber-600">
-                  {stats.pending}
+                  {isAdminOrStaff
+                    ? filteredComplaints.filter((c) => c.status === "pending")
+                        .length
+                    : stats.pending}
                 </p>
               </div>
               <Clock className="w-8 h-8 text-amber-400" />
@@ -348,7 +363,11 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               <div>
                 <p className="text-sm text-gray-500">In Progress</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {stats.inProgress}
+                  {isAdminOrStaff
+                    ? filteredComplaints.filter(
+                        (c) => c.status === "in-progress"
+                      ).length
+                    : stats.inProgress}
                 </p>
               </div>
               <AlertCircle className="w-8 h-8 text-blue-400" />
@@ -361,7 +380,10 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               <div>
                 <p className="text-sm text-gray-500">Resolved</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {stats.resolved}
+                  {isAdminOrStaff
+                    ? filteredComplaints.filter((c) => c.status === "resolved")
+                        .length
+                    : stats.resolved}
                 </p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-400" />
@@ -419,7 +441,7 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
             <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
               <Filter className="w-4 h-4" />
               <span>
-                Showing {filteredComplaints.length} of {complaints.length}{" "}
+                Showing {displayComplaints.length} of {complaints.length}{" "}
                 complaints
               </span>
               <button
@@ -439,7 +461,7 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
 
       {/* Complaints List */}
       <div className="space-y-4">
-        {filteredComplaints.length === 0 ? (
+        {displayComplaints.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -468,7 +490,7 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
             </CardContent>
           </Card>
         ) : (
-          myComplaints.map((complaint) => (
+          displayComplaints.map((complaint) => (
             <Card
               key={complaint.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
@@ -486,6 +508,14 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
                       <Badge variant={getPriorityColor(complaint.priority)}>
                         {complaint.priority}
                       </Badge>
+                      {isAdminOrStaff && complaint.user && (
+                        <Badge variant="default" className="flex items-center gap-1">
+                          <UserIcon className="w-3 h-3" />
+                          {typeof complaint.user === 'object' 
+                            ? `${complaint.user.firstName} ${complaint.user.lastName}`
+                            : 'User'}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-gray-600 line-clamp-2">
                       {complaint.description}
@@ -715,6 +745,14 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
                   <span className="text-sm text-gray-500">
                     {detailModal.complaint.category}
                   </span>
+                  {isAdminOrStaff && detailModal.complaint.user && (
+                    <Badge variant="default" className="flex items-center gap-1">
+                      <UserIcon className="w-3 h-3" />
+                      {typeof detailModal.complaint.user === 'object'
+                        ? `${detailModal.complaint.user.firstName} ${detailModal.complaint.user.lastName}`
+                        : 'User'}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>

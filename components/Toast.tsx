@@ -217,6 +217,34 @@ export const ToastProvider: React.FC<{ children?: React.ReactNode }> = ({
     type: ToastType = "info",
     duration: number = 4000
   ) => {
+    // Check if a toast with the same title, message, and type already exists
+    const isDuplicate = toasts.some(
+      (t) => t.title === title && t.message === message && t.type === type
+    );
+
+    if (isDuplicate) {
+      // If duplicate exists, just reset its progress by removing and re-adding it
+      setToasts((prev) => {
+        const filtered = prev.filter(
+          (t) =>
+            !(t.title === title && t.message === message && t.type === type)
+        );
+        const id = `toast-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        const newToast: ToastProps = {
+          id,
+          title,
+          message,
+          type,
+          duration,
+          onClose: removeToast,
+        };
+        return [...filtered, newToast].slice(-4);
+      });
+      return;
+    }
+
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newToast: ToastProps = {
       id,

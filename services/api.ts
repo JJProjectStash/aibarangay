@@ -78,40 +78,20 @@ const apiRequest = async (
   }
 
   if (!response.ok) {
-    // If unauthorized and we sent a token, retry once without the token in case it is invalid/expired
-    if (response.status === 401 && token) {
+    // If unauthorized and we sent a token, the token might be invalid/expired
+    // Remove it and throw error to force re-login
+    if (response.status === 401 && token && !options.skipAuth) {
       console.warn(
-        `Authorization failure for ${url}: removing token and retrying fetch without it.`
+        `Authorization failure for ${url}: token appears to be invalid or expired.`
       );
-      // Remove stored token and retry once
       removeToken();
-      const retryHeaders: HeadersInit = {
-        "Content-Type": "application/json",
-        ...options.headers,
-      };
-
-      try {
-        const retryResp = await fetch(url, {
-          ...options,
-          headers: retryHeaders,
-        });
-        if (!retryResp.ok) {
-          const error = await retryResp
-            .json()
-            .catch(() => ({ message: "Request failed" }));
-          throw new ApiError(
-            error.message || "Request failed",
-            retryResp.status
-          );
-        }
-        return retryResp.json();
-      } catch (err) {
-        console.error(`Retry without token failed for ${url}:`, err);
-        const error = await response
-          .json()
-          .catch(() => ({ message: "Request failed" }));
-        throw new ApiError(error.message || "Request failed", response.status);
-      }
+      const error = await response
+        .json()
+        .catch(() => ({ message: "Not authorized" }));
+      throw new ApiError(
+        error.message || "Session expired. Please login again.",
+        response.status
+      );
     }
     const error = await response
       .json()
