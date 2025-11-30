@@ -1,8 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Filter, MessageSquare, History, Clock, User as UserIcon, Phone, MapPin, Send, MessageCircle, Image as ImageIcon } from 'lucide-react';
-import { Button, Card, CardContent, Badge, Input, Label, Select, Modal, Skeleton, Textarea, FileUpload, Tabs } from '../components/UI';
-import { api } from '../services/api';
-import { Complaint, User } from '../types';
+import React, { useEffect, useState } from "react";
+import {
+  MessageSquare,
+  Plus,
+  Search,
+  Filter,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  Paperclip,
+  Send,
+  Image as ImageIcon,
+  X,
+} from "lucide-react";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Select,
+  Textarea,
+  Badge,
+  Modal,
+  FileUpload,
+} from "../components/UI";
+import { api } from "../services/api";
+import { Complaint, User, Comment } from "../types";
+import { useToast } from "../components/Toast";
+import { format } from "date-fns";
 
 interface ComplaintsProps {
   user: User;
@@ -10,423 +38,783 @@ interface ComplaintsProps {
 
 const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const [newComplaint, setNewComplaint] = useState({ title: '', description: '', category: 'Sanitation', priority: 'medium' as const, attachments: [] as string[] });
-  const [submitting, setSubmitting] = useState(false);
+  const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [createModal, setCreateModal] = useState(false);
+  const [detailModal, setDetailModal] = useState<{
+    isOpen: boolean;
+    complaint: Complaint | null;
+  }>({ isOpen: false, complaint: null });
+  const [loading, setLoading] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const { showToast } = useToast();
+
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    category: "",
+    priority: "medium" as "low" | "medium" | "high" | "urgent",
+  });
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  // Comment State
-  const [newComment, setNewComment] = useState('');
-  const [sendingComment, setSendingComment] = useState(false);
 
-  // Detail Modal Tab
-  const [detailTab, setDetailTab] = useState('details');
-
-  const fetchComplaints = async () => {
-    setLoading(true);
-    const data = await api.getComplaints(user);
-    setComplaints(data);
-    setLoading(false);
-  };
+  const categories = [
+    "Infrastructure",
+    "Sanitation",
+    "Security",
+    "Noise",
+    "Lighting",
+    "Drainage",
+    "Road",
+    "Other",
+  ];
 
   useEffect(() => {
     fetchComplaints();
-  }, [user]);
+  }, []);
+
+  useEffect(() => {
+    filterComplaints();
+  }, [complaints, searchQuery, statusFilter, categoryFilter]);
+
+  const fetchComplaints = async () => {
+    try {
+      const data = await api.getComplaints(user);
+      setComplaints(data);
+    } catch (error) {
+      showToast("Error", "Failed to fetch complaints", "error");
+    }
+  };
+
+  const filterComplaints = () => {
+    let filtered = [...complaints];
+
+    // Search filter - dynamically search in title and description
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (c) =>
+          c.title.toLowerCase().includes(query) ||
+          c.description.toLowerCase().includes(query) ||
+          c.category.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((c) => c.status === statusFilter);
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((c) => c.category === categoryFilter);
+    }
+
+    // Sort by date (newest first)
+    filtered.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    setFilteredComplaints(filtered);
+  };
 
   const validate = () => {
-      const newErrors: Record<string, string> = {};
-      if (!newComplaint.title.trim()) newErrors.title = "Title is required";
-      if (!newComplaint.description.trim()) newErrors.description = "Description is required";
-      setErrors(newErrors);
-      return Object.keys(newErrors).length === 0;
-  }
+    const newErrors: Record<string, string> = {};
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    if (!formData.title.trim() || formData.title.length < 5) {
+      newErrors.title = "Title must be at least 5 characters";
+    }
+    if (formData.title.length > 100) {
+      newErrors.title = "Title must not exceed 100 characters";
+    }
+
+    if (!formData.description.trim() || formData.description.length < 20) {
+      newErrors.description = "Description must be at least 20 characters";
+    }
+    if (formData.description.length > 1000) {
+      newErrors.description = "Description must not exceed 1000 characters";
+    }
+
+    if (!formData.category) {
+      newErrors.category = "Please select a category";
+    }
+
+    if (attachments.length > 5) {
+      newErrors.attachments = "Maximum 5 attachments allowed";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
 
-    setSubmitting(true);
-    await api.createComplaint({
-      ...newComplaint,
-      userId: user.id,
-      status: 'pending',
-      history: [{
-          id: Math.random().toString(),
-          action: 'Complaint Filed',
-          by: `${user.firstName} ${user.lastName}`,
-          timestamp: new Date().toISOString()
-      }]
-    });
-    setSubmitting(false);
-    setShowCreateModal(false);
-    setNewComplaint({ title: '', description: '', category: 'Sanitation', priority: 'medium', attachments: [] });
-    fetchComplaints();
+    if (!validate()) {
+      showToast(
+        "Validation Error",
+        "Please fix the errors in the form",
+        "error"
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.createComplaint({
+        ...formData,
+        userId: user.id,
+        status: "pending",
+        attachments: attachments,
+        history: [],
+      });
+      setCreateModal(false);
+      setFormData({
+        title: "",
+        description: "",
+        category: "",
+        priority: "medium",
+      });
+      setAttachments([]);
+      setErrors({});
+      showToast("Success", "Complaint submitted successfully", "success");
+      fetchComplaints();
+    } catch (error: any) {
+      showToast(
+        "Error",
+        error.message || "Failed to submit complaint",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleStatusUpdate = async (e: React.ChangeEvent<HTMLSelectElement>, complaint: Complaint) => {
-    e.stopPropagation();
-    const newStatus = e.target.value as Complaint['status'];
-    await api.updateComplaintStatus(complaint.id, newStatus);
-    fetchComplaints();
-  };
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !detailModal.complaint) {
+      showToast("Error", "Please enter a comment", "error");
+      return;
+    }
 
-  const handlePostComment = async () => {
-      if (!selectedComplaint || !newComment.trim()) return;
-      setSendingComment(true);
-      await api.addComplaintComment(selectedComplaint.id, {
+    if (commentText.length > 500) {
+      showToast("Error", "Comment must not exceed 500 characters", "error");
+      return;
+    }
+
+    try {
+      const newComment = await api.addComplaintComment(
+        detailModal.complaint.id,
+        {
           userId: user.id,
           userName: `${user.firstName} ${user.lastName}`,
           userRole: user.role,
-          message: newComment
-      });
-      // Refresh local state for immediate feedback
-      const updatedList = await api.getComplaints(user);
-      const updatedSelected = updatedList.find(c => c.id === selectedComplaint.id) || null;
-      setComplaints(updatedList);
-      setSelectedComplaint(updatedSelected);
-      setNewComment('');
-      setSendingComment(false);
-  }
+          message: commentText,
+        }
+      );
 
-  const getPriorityColor = (p: string) => {
-    switch (p) {
-      case 'high': return 'text-red-600 bg-red-50 border-red-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      default: return 'text-green-600 bg-green-50 border-green-200';
+      const updatedComplaint = {
+        ...detailModal.complaint,
+        comments: [...detailModal.complaint.comments, newComment],
+      };
+
+      setDetailModal({ isOpen: true, complaint: updatedComplaint });
+      setCommentText("");
+      showToast("Success", "Comment added", "success");
+      fetchComplaints();
+    } catch (error: any) {
+      showToast("Error", error.message || "Failed to add comment", "error");
     }
   };
 
-  const getStatusVariant = (s: string) => {
-    switch(s) {
-        case 'resolved': return 'success';
-        case 'closed': return 'default';
-        case 'in-progress': return 'info';
-        default: return 'warning';
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="w-4 h-4" />;
+      case "in-progress":
+        return <AlertCircle className="w-4 h-4" />;
+      case "resolved":
+        return <CheckCircle className="w-4 h-4" />;
+      case "closed":
+        return <XCircle className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
     }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "warning";
+      case "in-progress":
+        return "info";
+      case "resolved":
+        return "success";
+      case "closed":
+        return "default";
+      default:
+        return "default";
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return "danger";
+      case "high":
+        return "warning";
+      case "medium":
+        return "info";
+      case "low":
+        return "default";
+      default:
+        return "default";
+    }
+  };
+
+  const addAttachment = (base64: string) => {
+    if (attachments.length >= 5) {
+      showToast("Error", "Maximum 5 attachments allowed", "error");
+      return;
+    }
+    setAttachments([...attachments, base64]);
+    setErrors({ ...errors, attachments: "" });
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const myComplaints = filteredComplaints.filter((c) => c.userId === user.id);
+  const allComplaints = filteredComplaints;
+
+  const stats = {
+    total: myComplaints.length,
+    pending: myComplaints.filter((c) => c.status === "pending").length,
+    inProgress: myComplaints.filter((c) => c.status === "in-progress").length,
+    resolved: myComplaints.filter((c) => c.status === "resolved").length,
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Complaints</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Complaints & Reports
+          </h1>
           <p className="text-gray-500">
-            {user.role === 'resident' ? 'Manage your filed complaints' : 'Track and resolve resident issues'}
+            Report issues and track their resolution
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button onClick={() => setCreateModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
           File Complaint
         </Button>
       </div>
 
-      {/* Filters Toolbar */}
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-        <div className="relative flex-1 max-w-sm">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input className="pl-9" placeholder="Filter by title..." />
-        </div>
-        <div className="w-[180px]">
-            <Select>
-                <option>All Categories</option>
-                <option>Sanitation</option>
-                <option>Noise</option>
-                <option>Security</option>
-            </Select>
-        </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.total}
+                </p>
+              </div>
+              <MessageSquare className="w-8 h-8 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Pending</p>
+                <p className="text-2xl font-bold text-amber-600">
+                  {stats.pending}
+                </p>
+              </div>
+              <Clock className="w-8 h-8 text-amber-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">In Progress</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {stats.inProgress}
+                </p>
+              </div>
+              <AlertCircle className="w-8 h-8 text-blue-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Resolved</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {stats.resolved}
+                </p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-400" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {loading ? (
-        <div className="grid gap-4">
-            {[1,2,3].map(i => (
-                <Card key={i} className="p-6">
-                    <div className="flex gap-4">
-                        <div className="flex-1 space-y-3">
-                             <Skeleton className="w-1/4 h-4" />
-                             <Skeleton className="w-1/2 h-6" />
-                             <Skeleton className="w-3/4 h-4" />
-                        </div>
-                        <Skeleton className="w-24 h-8 rounded-full" />
-                    </div>
-                </Card>
-            ))}
-        </div>
-      ) : complaints.length === 0 ? (
-          <div className="text-center py-16 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <MessageSquare className="w-8 h-8 text-gray-300" />
-              </div>
-              <h3 className="text-gray-900 font-bold text-lg mb-1">No complaints found</h3>
-              <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">
-                  You haven't filed any complaints yet. If you notice any issues in the community, please let us know.
-              </p>
-              <Button variant="outline" onClick={() => setShowCreateModal(true)}>
-                  File a Complaint
-              </Button>
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search complaints..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </Select>
+            <Select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="all">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </Select>
           </div>
-      ) : (
-        <div className="grid gap-4">
-          {complaints.map((complaint) => (
-            <Card 
-                key={complaint.id} 
-                className="hover:border-primary-200 transition-colors cursor-pointer group"
-                onClick={() => { setSelectedComplaint(complaint); setDetailTab('details'); }}
+          {(searchQuery ||
+            statusFilter !== "all" ||
+            categoryFilter !== "all") && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+              <Filter className="w-4 h-4" />
+              <span>
+                Showing {filteredComplaints.length} of {complaints.length}{" "}
+                complaints
+              </span>
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                  setCategoryFilter("all");
+                }}
+                className="ml-auto text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Complaints List */}
+      <div className="space-y-4">
+        {filteredComplaints.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {searchQuery ||
+                statusFilter !== "all" ||
+                categoryFilter !== "all"
+                  ? "No complaints found"
+                  : "No complaints yet"}
+              </h3>
+              <p className="text-gray-500 mb-4">
+                {searchQuery ||
+                statusFilter !== "all" ||
+                categoryFilter !== "all"
+                  ? "Try adjusting your filters"
+                  : "Start by filing your first complaint"}
+              </p>
+              {!searchQuery &&
+                statusFilter === "all" &&
+                categoryFilter === "all" && (
+                  <Button onClick={() => setCreateModal(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    File Complaint
+                  </Button>
+                )}
+            </CardContent>
+          </Card>
+        ) : (
+          myComplaints.map((complaint) => (
+            <Card
+              key={complaint.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() =>
+                setDetailModal({ isOpen: true, complaint: complaint })
+              }
             >
               <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getPriorityColor(complaint.priority)}`}>
-                        {complaint.priority.toUpperCase()}
-                      </span>
-                      <span className="text-xs text-gray-400">{new Date(complaint.createdAt).toLocaleDateString()}</span>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {complaint.title}
+                      </h3>
+                      <Badge variant={getPriorityColor(complaint.priority)}>
+                        {complaint.priority}
+                      </Badge>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">{complaint.title}</h3>
-                    <p className="text-gray-600 text-sm line-clamp-2">{complaint.description}</p>
-                    <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <MessageSquare className="w-4 h-4" />
-                        <span>{complaint.comments?.length || 0} comments</span>
-                      </div>
-                      {complaint.attachments && complaint.attachments.length > 0 && (
-                          <div className="flex items-center gap-1">
-                              <ImageIcon className="w-4 h-4" />
-                              <span>{complaint.attachments.length} attached</span>
-                          </div>
-                      )}
-                      <span>•</span>
-                      <span>Filed by {complaint.user.firstName} {complaint.user.lastName}</span>
-                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {complaint.description}
+                    </p>
                   </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <div onClick={e => e.stopPropagation()}>
-                        {(user.role === 'staff' || user.role === 'admin') ? (
-                        <div className="w-[140px]">
-                            <Select 
-                                value={complaint.status}
-                                onChange={(e) => handleStatusUpdate(e, complaint)}
-                                className="h-8 text-xs py-1"
-                            >
-                                <option value="pending">Pending</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="closed">Closed</option>
-                            </Select>
-                        </div>
-                        ) : (
-                            <Badge variant={getStatusVariant(complaint.status) as any} className="capitalize">
-                            {complaint.status}
-                            </Badge>
-                        )}
-                    </div>
-                    <span className="text-xs text-primary-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
-                        View Details <History className="w-3 h-3 ml-1" />
+                  <Badge
+                    variant={getStatusColor(complaint.status)}
+                    className="ml-4"
+                  >
+                    {getStatusIcon(complaint.status)}
+                    <span className="ml-1 capitalize">
+                      {complaint.status.replace("-", " ")}
                     </span>
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-4 text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <MessageSquare className="w-4 h-4" />
+                      {complaint.category}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      {format(new Date(complaint.createdAt), "MMM d, yyyy")}
+                    </span>
+                    {complaint.attachments &&
+                      complaint.attachments.length > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Paperclip className="w-4 h-4" />
+                          {complaint.attachments.length}
+                        </span>
+                      )}
                   </div>
+                  {complaint.comments && complaint.comments.length > 0 && (
+                    <span className="text-primary-600 font-medium">
+                      {complaint.comments.length} comment
+                      {complaint.comments.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
-      {/* Create Modal */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="File a New Complaint">
-        <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Auto-filled User Credentials Section */}
-            <div className="bg-primary-50 p-4 rounded-lg border border-primary-100 mb-4">
-                <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-sm font-semibold text-primary-900 flex items-center">
-                        <UserIcon className="w-4 h-4 mr-2" /> Complainant Details
-                    </h4>
-                    <span className="text-[10px] bg-white text-primary-700 px-2 py-0.5 rounded border border-primary-200">Auto-filled</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span className="text-primary-600/70 block text-xs">Full Name</span>
-                        <span className="font-medium text-primary-900">{user.firstName} {user.lastName}</span>
-                    </div>
-                    <div>
-                        <span className="text-primary-600/70 block text-xs">Email</span>
-                        <span className="font-medium text-primary-900">{user.email}</span>
-                    </div>
-                </div>
+      {/* Create Complaint Modal */}
+      <Modal
+        isOpen={createModal}
+        onClose={() => {
+          setCreateModal(false);
+          setFormData({
+            title: "",
+            description: "",
+            category: "",
+            priority: "medium",
+          });
+          setAttachments([]);
+          setErrors({});
+        }}
+        title="File a Complaint"
+        className="max-w-2xl"
+      >
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div className="space-y-2">
+            <Label required>Title</Label>
+            <Input
+              value={formData.title}
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value });
+                if (errors.title) setErrors({ ...errors, title: "" });
+              }}
+              placeholder="Brief summary of the issue"
+              maxLength={100}
+              error={errors.title}
+            />
+            <p className="text-xs text-gray-500">
+              {formData.title.length}/100 characters
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label required>Description</Label>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => {
+                setFormData({ ...formData, description: e.target.value });
+                if (errors.description)
+                  setErrors({ ...errors, description: "" });
+              }}
+              placeholder="Provide detailed information about the issue..."
+              className="min-h-[120px]"
+              maxLength={1000}
+              error={errors.description}
+            />
+            <p className="text-xs text-gray-500">
+              {formData.description.length}/1000 characters
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label required>Category</Label>
+              <Select
+                value={formData.category}
+                onChange={(e) => {
+                  setFormData({ ...formData, category: e.target.value });
+                  if (errors.category) setErrors({ ...errors, category: "" });
+                }}
+                error={errors.category}
+              >
+                <option value="">Select category</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </Select>
             </div>
 
             <div className="space-y-2">
-                <Label required>Title</Label>
-                <Input 
-                    value={newComplaint.title}
-                    onChange={e => setNewComplaint({...newComplaint, title: e.target.value})}
-                    placeholder="Brief summary of the issue"
-                    error={errors.title}
-                />
+              <Label required>Priority</Label>
+              <Select
+                value={formData.priority}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    priority: e.target.value as any,
+                  })
+                }
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label required>Category</Label>
-                    <Select
-                        value={newComplaint.category}
-                        onChange={e => setNewComplaint({...newComplaint, category: e.target.value})}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Attachments (Optional)</Label>
+            {attachments.length < 5 && (
+              <FileUpload
+                value=""
+                onChange={addAttachment}
+                label=""
+                helperText="Add photos or documents (Max 5 files, 5MB each)"
+              />
+            )}
+            {errors.attachments && (
+              <p className="text-xs text-red-600">{errors.attachments}</p>
+            )}
+            {attachments.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {attachments.map((att, idx) => (
+                  <div key={idx} className="relative group">
+                    <img
+                      src={att}
+                      alt={`Attachment ${idx + 1}`}
+                      className="w-full h-24 object-cover rounded border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(idx)}
+                      className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                        <option value="Sanitation">Sanitation</option>
-                        <option value="Noise Disturbance">Noise Disturbance</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Security">Security</option>
-                        <option value="Other">Other</option>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label required>Priority</Label>
-                    <Select
-                        value={newComplaint.priority}
-                        onChange={e => setNewComplaint({...newComplaint, priority: e.target.value as any})}
-                    >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                    </Select>
-                </div>
-            </div>
-            <div className="space-y-2">
-                <Label required>Description</Label>
-                <Textarea 
-                    value={newComplaint.description}
-                    onChange={e => setNewComplaint({...newComplaint, description: e.target.value})}
-                    placeholder="Detailed description of the problem..."
-                    error={errors.description}
-                />
-            </div>
-            <div className="space-y-2">
-                <FileUpload 
-                    label="Attach Evidence (Photo)"
-                    value={newComplaint.attachments[0] || ''}
-                    onChange={val => setNewComplaint({...newComplaint, attachments: val ? [val] : []})}
-                />
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-                <Button type="submit" isLoading={submitting}>Submit Complaint</Button>
-            </div>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setCreateModal(false);
+                setFormData({
+                  title: "",
+                  description: "",
+                  category: "",
+                  priority: "medium",
+                });
+                setAttachments([]);
+                setErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Submitting..." : "Submit Complaint"}
+            </Button>
+          </div>
         </form>
       </Modal>
 
-      {/* Details & History Modal */}
-      <Modal isOpen={!!selectedComplaint} onClose={() => setSelectedComplaint(null)} title="Complaint Details" className="max-w-2xl">
-        {selectedComplaint && (
-            <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="flex justify-between items-start">
-                        <h3 className="font-bold text-gray-900 text-lg">{selectedComplaint.title}</h3>
-                        <Badge variant={getStatusVariant(selectedComplaint.status) as any}>{selectedComplaint.status}</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">{selectedComplaint.description}</p>
-                    <div className="mt-4 pt-4 border-t border-gray-200 flex gap-4 text-xs text-gray-500">
-                         <span>Category: {selectedComplaint.category}</span>
-                         <span>Filed: {new Date(selectedComplaint.createdAt).toLocaleString()}</span>
-                    </div>
+      {/* Detail Modal */}
+      <Modal
+        isOpen={detailModal.isOpen}
+        onClose={() => setDetailModal({ isOpen: false, complaint: null })}
+        title="Complaint Details"
+        className="max-w-3xl"
+      >
+        {detailModal.complaint && (
+          <div className="space-y-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {detailModal.complaint.title}
+                </h2>
+                <div className="flex items-center gap-2 mb-4">
+                  <Badge variant={getStatusColor(detailModal.complaint.status)}>
+                    {getStatusIcon(detailModal.complaint.status)}
+                    <span className="ml-1 capitalize">
+                      {detailModal.complaint.status.replace("-", " ")}
+                    </span>
+                  </Badge>
+                  <Badge
+                    variant={getPriorityColor(detailModal.complaint.priority)}
+                  >
+                    {detailModal.complaint.priority}
+                  </Badge>
+                  <span className="text-sm text-gray-500">
+                    {detailModal.complaint.category}
+                  </span>
                 </div>
-
-                <Tabs 
-                    activeTab={detailTab}
-                    onChange={setDetailTab}
-                    tabs={[
-                        {id: 'details', label: 'Discussion & Activity'},
-                        {id: 'evidence', label: 'Evidence/Photos'}
-                    ]}
-                />
-                
-                {/* Discussion Section */}
-                {detailTab === 'details' && (
-                <div className="space-y-6">
-                    <div>
-                        <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <MessageCircle className="w-4 h-4"/> Discussion
-                        </h4>
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 max-h-60 overflow-y-auto space-y-4 mb-4">
-                            {(!selectedComplaint.comments || selectedComplaint.comments.length === 0) && (
-                                <p className="text-center text-sm text-gray-500 italic">No comments yet.</p>
-                            )}
-                            {selectedComplaint.comments?.map(comment => (
-                                <div key={comment.id} className={`flex flex-col ${comment.userId === user.id ? 'items-end' : 'items-start'}`}>
-                                    <div className={`max-w-[80%] rounded-lg p-3 text-sm ${comment.userId === user.id ? 'bg-primary-100 text-primary-900' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                                        <p>{comment.message}</p>
-                                    </div>
-                                    <span className="text-[10px] text-gray-400 mt-1">
-                                        {comment.userName} • {new Date(comment.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            <Input 
-                                value={newComment} 
-                                onChange={e => setNewComment(e.target.value)} 
-                                placeholder="Type a message..." 
-                                className="flex-1"
-                                onKeyDown={e => e.key === 'Enter' && handlePostComment()}
-                            />
-                            <Button onClick={handlePostComment} disabled={!newComment.trim() || sendingComment} variant="secondary">
-                                <Send className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* History Section */}
-                    <div className="pt-4 border-t border-gray-100">
-                        <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Activity History</h4>
-                        <div className="relative border-l-2 border-gray-200 ml-3 space-y-8">
-                            {selectedComplaint.history?.map((log, index) => (
-                                <div key={log.id} className="relative pl-8">
-                                    <div className="absolute -left-[9px] top-0 h-4 w-4 rounded-full bg-white border-2 border-primary-500"></div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-900">{log.action}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                                            <span>by {log.by}</span>
-                                            <span>•</span>
-                                            <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {new Date(log.timestamp).toLocaleString()}</span>
-                                        </p>
-                                        {log.note && (
-                                            <div className="mt-2 text-sm text-gray-600 bg-yellow-50 p-2 rounded border border-yellow-100">
-                                                "{log.note}"
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                )}
-
-                {/* Evidence Section */}
-                {detailTab === 'evidence' && (
-                    <div className="min-h-[200px]">
-                        {selectedComplaint.attachments && selectedComplaint.attachments.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-4">
-                                {selectedComplaint.attachments.map((img, idx) => (
-                                    <div key={idx} className="relative aspect-video bg-black rounded-lg overflow-hidden border border-gray-200">
-                                        <img src={img} alt="Evidence" className="w-full h-full object-contain" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 text-gray-500">
-                                <ImageIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
-                                <p>No evidence attached to this complaint.</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <div className="flex justify-end pt-4">
-                     <Button variant="outline" onClick={() => setSelectedComplaint(null)}>Close</Button>
-                </div>
+              </div>
             </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {detailModal.complaint.description}
+              </p>
+            </div>
+
+            {detailModal.complaint.attachments &&
+              detailModal.complaint.attachments.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-3">
+                    Attachments
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {detailModal.complaint.attachments.map((att, idx) => (
+                      <img
+                        key={idx}
+                        src={att}
+                        alt={`Attachment ${idx + 1}`}
+                        className="w-full h-32 object-cover rounded border cursor-pointer hover:opacity-75"
+                        onClick={() => window.open(att, "_blank")}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            <div className="text-sm text-gray-500">
+              <p>
+                Filed on{" "}
+                {format(
+                  new Date(detailModal.complaint.createdAt),
+                  "MMMM d, yyyy 'at' h:mm a"
+                )}
+              </p>
+              <p>
+                Last updated{" "}
+                {format(
+                  new Date(detailModal.complaint.updatedAt),
+                  "MMMM d, yyyy 'at' h:mm a"
+                )}
+              </p>
+            </div>
+
+            {/* Comments Section */}
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">
+                Comments & Updates
+              </h3>
+              <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                {detailModal.complaint.comments &&
+                detailModal.complaint.comments.length > 0 ? (
+                  detailModal.complaint.comments.map((comment) => (
+                    <div key={comment.id} className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-sm text-gray-900">
+                          {comment.userName}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(comment.timestamp), "MMM d, h:mm a")}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700">{comment.message}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No comments yet
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add a comment..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  maxLength={500}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleAddComment}
+                  disabled={!commentText.trim()}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {commentText.length}/500 characters
+              </p>
+            </div>
+          </div>
         )}
       </Modal>
     </div>
