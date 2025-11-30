@@ -325,6 +325,20 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
   const currentItemTypes =
     formData.requestType === "Equipment" ? equipmentTypes : facilityTypes;
 
+  // Create unique keys for all types by prefixing with request type
+  const allItemTypes = [
+    ...equipmentTypes.map((type) => ({
+      key: `equipment-${type}`,
+      value: type,
+      label: type,
+    })),
+    ...facilityTypes.map((type) => ({
+      key: `facility-${type}`,
+      value: type,
+      label: type,
+    })),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -443,9 +457,9 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
               onChange={(e) => setTypeFilter(e.target.value)}
             >
               <option value="all">All Types</option>
-              {[...equipmentTypes, ...facilityTypes].map((type) => (
-                <option key={type} value={type}>
-                  {type}
+              {allItemTypes.map((type) => (
+                <option key={type.key} value={type.value}>
+                  {type.label}
                 </option>
               ))}
             </Select>
