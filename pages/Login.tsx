@@ -132,7 +132,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
 
   const fillDemoCreds = (role: string) => {
     const demoEmail = `${role}@ibarangay.com`;
-    const demoPassword = "demo1234";
+    const demoPassword = "password123";
     setEmail(demoEmail);
     setPassword(demoPassword);
     setErrors({});
