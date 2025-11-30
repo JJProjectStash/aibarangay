@@ -12,6 +12,7 @@ import {
   Filter,
   Building2,
   Users,
+  Edit,
 } from "lucide-react";
 import {
   Button,
@@ -49,6 +50,10 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     isOpen: boolean;
     service: ServiceRequest | null;
   }>({ isOpen: false, service: null });
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    service: ServiceRequest | null;
+  }>({ isOpen: false, service: null });
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -63,6 +68,11 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     purpose: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [statusFormData, setStatusFormData] = useState({
+    status: "" as ServiceRequest["status"],
+    note: "",
+  });
 
   const equipmentTypes = [
     "Sports Equipment",
@@ -274,6 +284,44 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
         error.message || "Failed to submit service request",
         "error"
       );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!statusFormData.status) {
+      showToast("Error", "Please select a status", "error");
+      return;
+    }
+
+    if (statusFormData.status === "rejected" && !statusFormData.note.trim()) {
+      showToast("Error", "Rejection reason is required", "error");
+      return;
+    }
+
+    if (!statusModal.service) return;
+
+    setLoading(true);
+    try {
+      await api.updateServiceStatus(
+        statusModal.service.id,
+        statusFormData.status,
+        statusFormData.note
+      );
+      showToast("Success", "Status updated successfully", "success");
+      setStatusModal({ isOpen: false, service: null });
+      setStatusFormData({ status: "" as ServiceRequest["status"], note: "" });
+      fetchServices();
+
+      // Also close detail modal if open
+      if (detailModal.isOpen) {
+        setDetailModal({ isOpen: false, service: null });
+      }
+    } catch (error: any) {
+      showToast("Error", error.message || "Failed to update status", "error");
     } finally {
       setLoading(false);
     }
@@ -572,13 +620,28 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                       {service.purpose}
                     </p>
                   </div>
-                  <Badge
-                    variant={getStatusColor(service.status)}
-                    className="ml-4"
-                  >
-                    {getStatusIcon(service.status)}
-                    <span className="ml-1 capitalize">{service.status}</span>
-                  </Badge>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Badge variant={getStatusColor(service.status)}>
+                      {getStatusIcon(service.status)}
+                      <span className="ml-1 capitalize">{service.status}</span>
+                    </Badge>
+                    {isAdminOrStaff && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStatusModal({ isOpen: true, service });
+                          setStatusFormData({
+                            status: service.status,
+                            note: "",
+                          });
+                        }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
@@ -848,6 +911,103 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
         </form>
       </Modal>
 
+      {/* Update Status Modal (Admin/Staff only) */}
+      {isAdminOrStaff && (
+        <Modal
+          isOpen={statusModal.isOpen}
+          onClose={() => {
+            setStatusModal({ isOpen: false, service: null });
+            setStatusFormData({
+              status: "" as ServiceRequest["status"],
+              note: "",
+            });
+          }}
+          title="Update Service Request Status"
+          className="max-w-md"
+        >
+          {statusModal.service && (
+            <form onSubmit={handleUpdateStatus} className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  {statusModal.service.itemName}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Current status:{" "}
+                  <Badge variant={getStatusColor(statusModal.service.status)}>
+                    {statusModal.service.status}
+                  </Badge>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label required>New Status</Label>
+                <Select
+                  value={statusFormData.status}
+                  onChange={(e) =>
+                    setStatusFormData({
+                      ...statusFormData,
+                      status: e.target.value as ServiceRequest["status"],
+                    })
+                  }
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="borrowed">Borrowed</option>
+                  <option value="returned">Returned</option>
+                  <option value="rejected">Rejected</option>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  Note{" "}
+                  {statusFormData.status === "rejected" &&
+                    "(Required for rejection)"}
+                </Label>
+                <Textarea
+                  value={statusFormData.note}
+                  onChange={(e) =>
+                    setStatusFormData({
+                      ...statusFormData,
+                      note: e.target.value,
+                    })
+                  }
+                  placeholder={
+                    statusFormData.status === "rejected"
+                      ? "Please provide a reason for rejection..."
+                      : "Add a note about this status change..."
+                  }
+                  className="min-h-[80px]"
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-500">
+                  {statusFormData.note.length}/500 characters
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setStatusModal({ isOpen: false, service: null });
+                    setStatusFormData({
+                      status: "" as ServiceRequest["status"],
+                      note: "",
+                    });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Updating..." : "Update Status"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
+      )}
+
       {/* Detail Modal */}
       <Modal
         isOpen={detailModal.isOpen}
@@ -890,6 +1050,24 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                   </Badge>
                 </div>
               </div>
+              {isAdminOrStaff && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setStatusModal({
+                      isOpen: true,
+                      service: detailModal.service,
+                    });
+                    setStatusFormData({
+                      status: detailModal.service!.status,
+                      note: "",
+                    });
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update Status
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

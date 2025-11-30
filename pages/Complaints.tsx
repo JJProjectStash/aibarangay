@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   X,
   User as UserIcon,
+  Edit,
 } from "lucide-react";
 import {
   Button,
@@ -48,6 +49,10 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
     isOpen: boolean;
     complaint: Complaint | null;
   }>({ isOpen: false, complaint: null });
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    complaint: Complaint | null;
+  }>({ isOpen: false, complaint: null });
   const [loading, setLoading] = useState(false);
   const [commentText, setCommentText] = useState("");
   const { showToast } = useToast();
@@ -60,6 +65,11 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
   });
   const [attachments, setAttachments] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [statusFormData, setStatusFormData] = useState({
+    status: "" as Complaint["status"],
+    note: "",
+  });
 
   const categories = [
     "Infrastructure",
@@ -192,6 +202,39 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
         error.message || "Failed to submit complaint",
         "error"
       );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!statusFormData.status) {
+      showToast("Error", "Please select a status", "error");
+      return;
+    }
+
+    if (!statusModal.complaint) return;
+
+    setLoading(true);
+    try {
+      await api.updateComplaintStatus(
+        statusModal.complaint.id,
+        statusFormData.status,
+        statusFormData.note
+      );
+      showToast("Success", "Status updated successfully", "success");
+      setStatusModal({ isOpen: false, complaint: null });
+      setStatusFormData({ status: "" as Complaint["status"], note: "" });
+      fetchComplaints();
+
+      // Also close detail modal if open
+      if (detailModal.isOpen) {
+        setDetailModal({ isOpen: false, complaint: null });
+      }
+    } catch (error: any) {
+      showToast("Error", error.message || "Failed to update status", "error");
     } finally {
       setLoading(false);
     }
@@ -509,11 +552,14 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
                         {complaint.priority}
                       </Badge>
                       {isAdminOrStaff && complaint.user && (
-                        <Badge variant="default" className="flex items-center gap-1">
+                        <Badge
+                          variant="default"
+                          className="flex items-center gap-1"
+                        >
                           <UserIcon className="w-3 h-3" />
-                          {typeof complaint.user === 'object' 
+                          {typeof complaint.user === "object"
                             ? `${complaint.user.firstName} ${complaint.user.lastName}`
-                            : 'User'}
+                            : "User"}
                         </Badge>
                       )}
                     </div>
@@ -521,15 +567,30 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
                       {complaint.description}
                     </p>
                   </div>
-                  <Badge
-                    variant={getStatusColor(complaint.status)}
-                    className="ml-4"
-                  >
-                    {getStatusIcon(complaint.status)}
-                    <span className="ml-1 capitalize">
-                      {complaint.status.replace("-", " ")}
-                    </span>
-                  </Badge>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Badge variant={getStatusColor(complaint.status)}>
+                      {getStatusIcon(complaint.status)}
+                      <span className="ml-1 capitalize">
+                        {complaint.status.replace("-", " ")}
+                      </span>
+                    </Badge>
+                    {isAdminOrStaff && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStatusModal({ isOpen: true, complaint });
+                          setStatusFormData({
+                            status: complaint.status,
+                            note: "",
+                          });
+                        }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
@@ -716,6 +777,91 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
         </form>
       </Modal>
 
+      {/* Update Status Modal (Admin/Staff only) */}
+      {isAdminOrStaff && (
+        <Modal
+          isOpen={statusModal.isOpen}
+          onClose={() => {
+            setStatusModal({ isOpen: false, complaint: null });
+            setStatusFormData({ status: "" as Complaint["status"], note: "" });
+          }}
+          title="Update Complaint Status"
+          className="max-w-md"
+        >
+          {statusModal.complaint && (
+            <form onSubmit={handleUpdateStatus} className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  {statusModal.complaint.title}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Current status:{" "}
+                  <Badge variant={getStatusColor(statusModal.complaint.status)}>
+                    {statusModal.complaint.status}
+                  </Badge>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label required>New Status</Label>
+                <Select
+                  value={statusFormData.status}
+                  onChange={(e) =>
+                    setStatusFormData({
+                      ...statusFormData,
+                      status: e.target.value as Complaint["status"],
+                    })
+                  }
+                >
+                  <option value="pending">Pending</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Note (Optional)</Label>
+                <Textarea
+                  value={statusFormData.note}
+                  onChange={(e) =>
+                    setStatusFormData({
+                      ...statusFormData,
+                      note: e.target.value,
+                    })
+                  }
+                  placeholder="Add a note about this status change..."
+                  className="min-h-[80px]"
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-500">
+                  {statusFormData.note.length}/500 characters
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setStatusModal({ isOpen: false, complaint: null });
+                    setStatusFormData({
+                      status: "" as Complaint["status"],
+                      note: "",
+                    });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Updating..." : "Update Status"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
+      )}
+
       {/* Detail Modal */}
       <Modal
         isOpen={detailModal.isOpen}
@@ -746,15 +892,36 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
                     {detailModal.complaint.category}
                   </span>
                   {isAdminOrStaff && detailModal.complaint.user && (
-                    <Badge variant="default" className="flex items-center gap-1">
+                    <Badge
+                      variant="default"
+                      className="flex items-center gap-1"
+                    >
                       <UserIcon className="w-3 h-3" />
-                      {typeof detailModal.complaint.user === 'object'
+                      {typeof detailModal.complaint.user === "object"
                         ? `${detailModal.complaint.user.firstName} ${detailModal.complaint.user.lastName}`
-                        : 'User'}
+                        : "User"}
                     </Badge>
                   )}
                 </div>
               </div>
+              {isAdminOrStaff && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setStatusModal({
+                      isOpen: true,
+                      complaint: detailModal.complaint,
+                    });
+                    setStatusFormData({
+                      status: detailModal.complaint!.status,
+                      note: "",
+                    });
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update Status
+                </Button>
+              )}
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg">
