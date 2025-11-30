@@ -52,7 +52,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     if (validationError) {
       setError(validationError);
       setTouched(true);
-      showToast("Validation Error", validationError, "error");
       return;
     }
 
@@ -135,17 +134,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     onBlur={handleEmailBlur}
                     placeholder="name@ibarangay.com"
                     className="h-12 pl-10 bg-gray-50 border-gray-200 focus:bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-200"
-                    error={touched ? error : ""}
+                    error={touched && error ? error : ""}
                     disabled={loading}
                     autoComplete="email"
                     maxLength={100}
                   />
                 </div>
-                {touched && error && (
-                  <p className="text-xs text-red-600 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                    {error}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
