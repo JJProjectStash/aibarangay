@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
-import { Button, Card, CardContent, Input, Label } from "../components/UI";
+import { Button, Card, CardContent, Label } from "../components/UI";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
 
@@ -190,138 +190,217 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label required>First Name</Label>
-                <Input
-                  value={formData.firstName}
-                  onChange={(e) =>
-                    handleNameChange("firstName", e.target.value)
-                  }
-                  onBlur={() => handleBlur("firstName")}
-                  error={touched.firstName ? errors.firstName : ""}
-                  placeholder="Juan"
-                  maxLength={50}
-                  disabled={loading}
-                />
+                <div className="w-full">
+                  <input
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      handleNameChange("firstName", e.target.value)
+                    }
+                    onBlur={() => handleBlur("firstName")}
+                    placeholder="Juan"
+                    maxLength={50}
+                    disabled={loading}
+                    className={`flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                      touched.firstName && errors.firstName
+                        ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                        : "border-gray-300"
+                    }`}
+                  />
+                  {touched.firstName && errors.firstName && (
+                    <p className="mt-1.5 text-xs text-red-600 font-medium">
+                      {errors.firstName}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label required>Last Name</Label>
-                <Input
-                  value={formData.lastName}
-                  onChange={(e) => handleNameChange("lastName", e.target.value)}
-                  onBlur={() => handleBlur("lastName")}
-                  error={touched.lastName ? errors.lastName : ""}
-                  placeholder="Dela Cruz"
-                  maxLength={50}
-                  disabled={loading}
-                />
+                <div className="w-full">
+                  <input
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      handleNameChange("lastName", e.target.value)
+                    }
+                    onBlur={() => handleBlur("lastName")}
+                    placeholder="Dela Cruz"
+                    maxLength={50}
+                    disabled={loading}
+                    className={`flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                      touched.lastName && errors.lastName
+                        ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                        : "border-gray-300"
+                    }`}
+                  />
+                  {touched.lastName && errors.lastName && (
+                    <p className="mt-1.5 text-xs text-red-600 font-medium">
+                      {errors.lastName}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             <div className="space-y-2">
               <Label required>Email</Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                onBlur={() => handleBlur("email")}
-                error={touched.email ? errors.email : ""}
-                placeholder="name@email.com"
-                disabled={loading}
-                maxLength={100}
-              />
+              <div className="w-full">
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  onBlur={() => handleBlur("email")}
+                  placeholder="name@email.com"
+                  disabled={loading}
+                  maxLength={100}
+                  className={`flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                    touched.email && errors.email
+                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                      : "border-gray-300"
+                  }`}
+                />
+                {touched.email && errors.email && (
+                  <p className="mt-1.5 text-xs text-red-600 font-medium">
+                    {errors.email}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label required>Phone Number</Label>
-              <Input
-                type="tel"
-                placeholder="09123456789"
-                value={formData.phone}
-                onChange={(e) => handlePhoneChange(e.target.value)}
-                onBlur={() => handleBlur("phone")}
-                error={touched.phone ? errors.phone : ""}
-                maxLength={11}
-                disabled={loading}
-              />
-              <p className="text-xs text-gray-500">
-                Format: 09XXXXXXXXX (11 digits)
-              </p>
+              <div className="w-full">
+                <input
+                  type="tel"
+                  placeholder="09123456789"
+                  value={formData.phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onBlur={() => handleBlur("phone")}
+                  maxLength={11}
+                  disabled={loading}
+                  className={`flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                    touched.phone && errors.phone
+                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                      : "border-gray-300"
+                  }`}
+                />
+                {touched.phone && errors.phone && (
+                  <p className="mt-1.5 text-xs text-red-600 font-medium">
+                    {errors.phone}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: 09XXXXXXXXX (11 digits)
+                </p>
+              </div>
             </div>
             <div className="space-y-2">
               <Label required>Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) =>
-                    handleInputChange("password", e.target.value)
-                  }
-                  onBlur={() => handleBlur("password")}
-                  error={touched.password ? errors.password : ""}
-                  placeholder="••••••••"
-                  className="pr-12"
-                  disabled={loading}
-                  maxLength={128}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
-                  tabIndex={-1}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
+              <div className="w-full">
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
+                    onBlur={() => handleBlur("password")}
+                    placeholder="••••••••"
+                    disabled={loading}
+                    maxLength={128}
+                    className={`flex h-10 w-full rounded-lg border bg-white px-3 pr-12 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                      touched.password && errors.password
+                        ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                        : "border-gray-300"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
+                    tabIndex={-1}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {touched.password && errors.password && (
+                  <p className="mt-1.5 text-xs text-red-600 font-medium">
+                    {errors.password}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Min 8 characters, include uppercase, lowercase, and number
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                Min 8 characters, include uppercase, lowercase, and number
-              </p>
             </div>
             <div className="space-y-2">
               <Label required>Confirm Password</Label>
-              <div className="relative">
-                <Input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    handleInputChange("confirmPassword", e.target.value)
-                  }
-                  onBlur={() => handleBlur("confirmPassword")}
-                  error={touched.confirmPassword ? errors.confirmPassword : ""}
-                  placeholder="••••••••"
-                  className="pr-12"
-                  disabled={loading}
-                  maxLength={128}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
-                  tabIndex={-1}
-                  aria-label={
-                    showConfirmPassword ? "Hide password" : "Show password"
-                  }
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
+              <div className="w-full">
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={(e) =>
+                      handleInputChange("confirmPassword", e.target.value)
+                    }
+                    onBlur={() => handleBlur("confirmPassword")}
+                    placeholder="••••••••"
+                    disabled={loading}
+                    maxLength={128}
+                    className={`flex h-10 w-full rounded-lg border bg-white px-3 pr-12 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                      touched.confirmPassword && errors.confirmPassword
+                        ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                        : "border-gray-300"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none p-1"
+                    tabIndex={-1}
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <p className="mt-1.5 text-xs text-red-600 font-medium">
+                    {errors.confirmPassword}
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
               <Label required>Address</Label>
-              <Input
-                value={formData.address}
-                onChange={(e) => handleInputChange("address", e.target.value)}
-                onBlur={() => handleBlur("address")}
-                placeholder="Block X Lot Y, Street Name, Barangay"
-                error={touched.address ? errors.address : ""}
-                maxLength={200}
-                disabled={loading}
-              />
+              <div className="w-full">
+                <input
+                  value={formData.address}
+                  onChange={(e) => handleInputChange("address", e.target.value)}
+                  onBlur={() => handleBlur("address")}
+                  placeholder="Block X Lot Y, Street Name, Barangay"
+                  maxLength={200}
+                  disabled={loading}
+                  className={`flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-sm ${
+                    touched.address && errors.address
+                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
+                      : "border-gray-300"
+                  }`}
+                />
+                {touched.address && errors.address && (
+                  <p className="mt-1.5 text-xs text-red-600 font-medium">
+                    {errors.address}
+                  </p>
+                )}
+              </div>
             </div>
 
             <Button
