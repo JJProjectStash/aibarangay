@@ -1,223 +1,257 @@
-# iBarangay - User Verification System
+# iBarangay - Online Services Platform (Frontend)
 
 ## Overview
-This project implements a complete user management and verification system for the iBarangay platform, allowing residents to upload government IDs for identity verification.
 
-## Key Features Implemented
+iBarangay is a modern web application for barangay residents to access local government services, view announcements, register for events, file complaints, and stay informed about community news. This repository contains the **React/TypeScript frontend** built with Vite.
 
-### 1. Government ID Upload
-- **User Profile**: Residents can upload their government ID (UMID, Driver's License, Passport, etc.) from their profile page
-- **File Validation**: Automatic validation for file size (max 5MB) and format
-- **Visual Preview**: Users can preview their uploaded ID before submission
-- **Status Tracking**: Clear indicators showing verification status (Verified/Unverified/Pending)
+## Key Features
 
-### 2. Admin Verification Dashboard
-- **User Management**: Comprehensive admin panel to view all users
-- **Filtering**: Quick filters for All Users, Pending Verification, Staff, and Admins
-- **ID Review**: Admins can view uploaded government IDs in high quality
-- **One-Click Verification**: Approve or reject verification with a single click
-- **Audit Trail**: All verification actions are logged for accountability
+### For Residents
 
-### 3. Backend API Enhancements
-- **Secure Upload**: Base64 image handling with size validation
-- **Dynamic Updates**: Real-time synchronization between frontend and backend
-- **Audit Logging**: Automatic logging of ID uploads and verification actions
-- **Role Management**: Admins can update user roles and verification status
+- **Landing Page**: View public events, announcements, news, and barangay officials without signing in
+- **Dashboard**: Personalized overview of services, events, and notifications
+- **Services**: Request barangay documents (Barangay Clearance, Indigency Certificate, etc.)
+- **Events**: Browse and register for community events
+- **Complaints**: File and track complaints
+- **Announcements & News**: Stay updated with community information
+- **Profile Management**: Update personal info, upload government ID for verification
 
-### 4. Data Validation & Security
-- **Input Validation**: Comprehensive validation for all user inputs
-- **Phone Number**: Philippine format validation (09XXXXXXXXX)
-- **Name Fields**: Only letters, spaces, dots, and dashes allowed
-- **Address**: Maximum 200 characters with proper sanitization
-- **File Size Limits**: 4MB for avatars, 5MB for ID documents
+### For Admins
+
+- **User Management**: View/edit users, approve ID verification
+- **Content Management**: Manage announcements, news, events, and services
+- **Calendar**: Shared calendar for scheduling
+- **Audit Logs**: Track system activities
+- **Site Configuration**: Customize barangay info, hotlines, and settings
+
+### Technical Features
+
+- **Toast Notifications**: User-friendly feedback via a global Toast provider
+- **Public Endpoints**: Landing page data fetched without authentication
+- **Role-Based Views**: Different UI for residents vs admins
+- **Responsive Design**: Mobile-friendly with Tailwind CSS
 
 ## Project Structure
 
 ```
 aibarangay/
-├── aibarangay-backend/
-│   ├── models/
-│   │   └── User.js (Updated with idDocumentUrl field)
-│   ├── routes/
-│   │   ├── auth.js (Enhanced with ID upload support)
-│   │   └── admin.js (New verification endpoints)
-│   ├── .env (Configuration)
-│   └── server.js
-│
-└── aibarangay-frontend/
-    ├── pages/
-    │   ├── Profile.tsx (ID upload interface)
-    │   ├── AdminUsers.tsx (Verification dashboard)
-    │   └── Signup.tsx (Enhanced validation)
-    ├── services/
-    │   └── api.ts (Updated API methods)
-    ├── components/
-    │   └── UI.tsx (FileUpload component)
-    └── types.ts (User interface with idDocumentUrl)
+├── components/
+│   ├── SharedCalendar.tsx   # Calendar component
+│   ├── Toast.tsx            # Toast notifications provider
+│   └── UI.tsx               # Reusable UI components
+├── pages/
+│   ├── Landing.tsx          # Public landing page
+│   ├── Login.tsx / Signup.tsx
+│   ├── Dashboard.tsx        # User dashboard
+│   ├── Services.tsx         # Service requests
+│   ├── Events.tsx           # Community events
+│   ├── Complaints.tsx       # File complaints
+│   ├── Announcements.tsx    # View announcements
+│   ├── News.tsx             # Community news
+│   ├── Profile.tsx          # User profile & ID upload
+│   ├── Help.tsx / Hotlines.tsx
+│   ├── Admin*.tsx           # Admin pages
+│   └── NotFound.tsx
+├── services/
+│   └── api.ts               # API wrapper with public/admin endpoints
+├── App.tsx                  # Main app with routing
+├── index.tsx                # Entry point with ToastProvider
+├── types.ts                 # TypeScript interfaces
+├── mockData.ts              # Sample data for development
+├── vite.config.ts           # Vite configuration
+├── tsconfig.json
+├── package.json
+└── .env.example             # Environment variables template
 ```
 
 ## Setup Instructions
 
-### Backend Setup
-1. Navigate to backend directory:
-   ```bash
-   cd aibarangay-backend
-   ```
+### Prerequisites
 
-2. Install dependencies:
+- Node.js 18+ and npm
+- Backend server running (see backend repo)
+
+### Installation
+
+1. **Clone and install dependencies:**
+
    ```bash
+   git clone <repository-url>
+   cd aibarangay
    npm install
    ```
 
-3. Configure environment variables:
-   - Copy `.env.example` to `.env`
-   - Update `MONGODB_URI` with your MongoDB connection string
-   - Set a secure `JWT_SECRET`
+2. **Configure environment variables:**
 
-4. Start the server:
+   Create a `.env` file (or `.env.local`) in the root:
+
+   ```env
+   VITE_API_URL=http://localhost:5000/api
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+   > **Note:** All frontend environment variables must be prefixed with `VITE_` to be accessible in the browser.
+
+3. **Start the development server:**
+
    ```bash
    npm run dev
    ```
 
-### Frontend Setup
-1. Navigate to frontend directory:
+   The app will be available at `http://localhost:5173` (or the next available port).
+
+4. **Build for production:**
    ```bash
-   cd aibarangay-frontend
+   npm run build
+   npm run preview   # Preview the production build
    ```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+## Environment Variables
 
-3. Configure API URL:
-   - Create `.env` file
-   - Set `VITE_API_URL=http://localhost:5000/api`
+| Variable              | Description                      | Example                     |
+| --------------------- | -------------------------------- | --------------------------- |
+| `VITE_API_URL`        | Backend API base URL             | `http://localhost:5000/api` |
+| `VITE_GEMINI_API_KEY` | Google Gemini API key (optional) | `AIza...`                   |
 
-4. Start development server:
-   ```bash
-   npm run dev
-   ```
-
-## User Flow
-
-### For Residents:
-1. **Sign Up**: Create account with validated personal information
-2. **Upload ID**: Navigate to Profile page and upload government ID
-3. **Wait for Verification**: Admin reviews and approves the ID
-4. **Access Services**: Once verified, access all barangay services
-
-### For Admins:
-1. **View Pending Users**: Check "Pending Verification" tab in User Management
-2. **Review ID Documents**: Click on user to view uploaded government ID
-3. **Verify Identity**: Click "Approve & Verify" to grant full access
-4. **Manage Roles**: Update user roles (Resident, Staff, Admin)
+> **Important:** Use `http://` (not `https://`) for local development unless your backend has SSL configured.
 
 ## API Endpoints
 
-### Authentication
+The frontend communicates with the backend via `services/api.ts`. Endpoints are split into **public** (no auth required) and **protected** (requires JWT token).
+
+### Public Endpoints (No Authentication)
+
+Used by the landing page and public views:
+
+- `GET /api/public/events` - Get public events
+- `GET /api/public/announcements` - Get public announcements
+- `GET /api/public/news` - Get public news articles
+- `GET /api/public/officials` - Get barangay officials
+- `GET /api/public/settings` - Get site settings (name, contact, etc.)
+
+### Protected Endpoints (Requires Login)
+
+**Authentication:**
+
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - User login
 - `GET /api/auth/me` - Get current user
-- `PUT /api/auth/profile` - Update profile (includes ID upload)
+- `PUT /api/auth/profile` - Update profile
 
-### Admin
+**User Resources:**
+
+- `GET /api/services` - Get available services
+- `POST /api/services/request` - Submit service request
+- `GET /api/events` - Get events (with registration info)
+- `POST /api/events/:id/register` - Register for event
+- `GET /api/complaints` - Get user complaints
+- `POST /api/complaints` - File new complaint
+
+**Admin Only:**
+
 - `GET /api/admin/users` - Get all users
-- `PUT /api/admin/users/:id` - Update user (role, verification)
-- `DELETE /api/admin/users/:id` - Delete user
+- `PUT /api/admin/users/:id` - Update user
 - `GET /api/admin/audit-logs` - View audit logs
+- `PUT /api/admin/settings` - Update site settings
 
 ## Validation Rules
 
 ### User Registration
-- **First/Last Name**: 2-50 characters, letters only
-- **Email**: Valid email format
-- **Password**: Min 8 chars, uppercase, lowercase, number
-- **Phone**: 09XXXXXXXXX (11 digits)
-- **Address**: Max 200 characters
 
-### ID Upload
-- **Accepted Formats**: JPG, PNG, GIF, SVG
-- **Max Size**: 5MB
-- **Required**: Clear photo showing full name and photo
+| Field           | Rule                                       |
+| --------------- | ------------------------------------------ |
+| First/Last Name | 2-50 characters, letters only              |
+| Email           | Valid email format                         |
+| Password        | Min 8 chars, uppercase, lowercase, number  |
+| Phone           | 09XXXXXXXXX (11 digits, Philippine format) |
+| Address         | Max 200 characters                         |
 
-## Security Features
+### File Uploads
 
-1. **JWT Authentication**: Secure token-based authentication
-2. **Password Hashing**: bcrypt with salt rounds
-3. **Input Sanitization**: All inputs validated and sanitized
-4. **File Size Limits**: Prevent large file uploads
-5. **Role-Based Access**: Admin-only verification endpoints
-6. **Audit Logging**: Track all verification actions
+| Type          | Max Size | Formats       |
+| ------------- | -------- | ------------- |
+| Avatar        | 4MB      | JPG, PNG, GIF |
+| Government ID | 5MB      | JPG, PNG, GIF |
 
-## Database Schema
+## Toast Notifications
 
-### User Model
-```javascript
-{
-  firstName: String (required, 2-50 chars),
-  lastName: String (required, 2-50 chars),
-  email: String (required, unique, lowercase),
-  password: String (required, hashed, min 6 chars),
-  role: String (resident/staff/admin),
-  avatar: String (base64 or URL),
-  address: String (max 200 chars),
-  phoneNumber: String (09XXXXXXXXX),
-  isVerified: Boolean (default: false),
-  idDocumentUrl: String (base64 or URL),
-  timestamps: true
+The app uses a global Toast system for user feedback. To show a toast in any component:
+
+```tsx
+import { useToast } from "../components/Toast";
+
+function MyComponent() {
+  const { showToast } = useToast();
+
+  const handleAction = () => {
+    showToast("Operation successful!", "success");
+    // Types: 'success' | 'error' | 'info' | 'warning'
+  };
 }
 ```
-
-## Testing Checklist
-
-- [ ] User can register with valid information
-- [ ] User can upload government ID from profile
-- [ ] Admin can see pending verification count
-- [ ] Admin can view uploaded ID documents
-- [ ] Admin can approve verification
-- [ ] Verification status updates in real-time
-- [ ] Audit logs record verification actions
-- [ ] File size validation works correctly
-- [ ] Phone number validation (Philippine format)
-- [ ] Name validation (letters only)
-
-## Future Enhancements
-
-1. **ID Rejection**: Allow admins to reject IDs with reason
-2. **Email Notifications**: Notify users when verified
-3. **Document Expiry**: Track ID expiration dates
-4. **Multiple IDs**: Support multiple ID uploads
-5. **OCR Integration**: Auto-extract information from IDs
-6. **SMS Verification**: Add phone number verification
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **MongoDB Connection Error**
-   - Ensure MongoDB is running
-   - Check MONGODB_URI in .env file
+**1. "401 Unauthorized" on Landing Page**
 
-2. **CORS Error**
-   - Verify CLIENT_URL in backend .env
-   - Check VITE_API_URL in frontend .env
+- The landing page should use public endpoints (`/api/public/*`)
+- Ensure your backend has the public routes configured
+- Check that `services/api.ts` uses `getPublicEvents()`, `getPublicAnnouncements()`, etc.
 
-3. **File Upload Fails**
-   - Check file size (max 5MB)
-   - Ensure correct file format (images only)
+**2. CORS Errors**
 
-4. **Verification Not Updating**
-   - Clear browser cache
-   - Check network tab for API errors
-   - Verify admin role permissions
+- Verify `CLIENT_URL` in backend `.env` matches your frontend URL
+- For local dev, backend should allow `http://localhost:5173`
 
-## Support
+**3. API Connection Failed**
 
-For issues or questions, please check:
-- Backend logs: `npm run dev` output
-- Frontend console: Browser developer tools
-- Network requests: Browser network tab
+- Ensure backend is running on the correct port
+- Check `VITE_API_URL` uses `http://` not `https://` for local dev
+- Verify the API URL ends with `/api` (e.g., `http://localhost:5000/api`)
+
+**4. Repeated API Requests (Fetch Spam)**
+
+- Check browser console for React re-render loops
+- Ensure `useEffect` dependencies are stable (use `useCallback`/`useMemo`)
+- Verify fetch functions have guards against concurrent calls
+
+**5. Toast Not Showing**
+
+- Ensure `<ToastProvider>` wraps the app in `index.tsx`
+- Check that `useToast()` is called inside a component within the provider
+
+**6. File Upload Fails**
+
+- Check file size limits (4MB avatar, 5MB ID)
+- Ensure correct file format (images only)
+- Verify backend accepts base64 encoded files
+
+**7. Verification Not Updating**
+
+- Clear browser cache
+- Check network tab for API errors
+- Verify admin role permissions
+
+## Scripts
+
+| Command           | Description              |
+| ----------------- | ------------------------ |
+| `npm run dev`     | Start development server |
+| `npm run build`   | Build for production     |
+| `npm run preview` | Preview production build |
+| `npm run lint`    | Run ESLint               |
+
+## Tech Stack
+
+- **Framework:** React 19 with TypeScript
+- **Build Tool:** Vite 6
+- **Styling:** Tailwind CSS
+- **Icons:** Lucide React
+- **Routing:** React Router DOM
+- **State:** React hooks (useState, useEffect, useContext)
+- **API:** Fetch API with custom wrapper
 
 ## License
 
