@@ -69,6 +69,111 @@
   animation: bounce-slow 2s ease-in-out infinite;
 }
 
+/* Form shake animation for errors */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Success checkmark animation */
+@keyframes checkmark {
+  0% { 
+    opacity: 0;
+    transform: scale(0) rotate(-45deg);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.2) rotate(0deg);
+  }
+  100% { 
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-checkmark {
+  animation: checkmark 0.4s ease-out forwards;
+}
+
+/* Number counter animation */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-count-up {
+  animation: countUp 0.6s ease-out forwards;
+}
+
+/* Staggered animation delays for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+
+/* Fade in up animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* Scale in animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+/* Pulse animation for loading buttons */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(20, 184, 166, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+
+/* Password strength meter colors */
+.strength-weak { background: linear-gradient(90deg, #ef4444 0%, #ef4444 25%, #e5e7eb 25%); }
+.strength-fair { background: linear-gradient(90deg, #f59e0b 0%, #f59e0b 50%, #e5e7eb 50%); }
+.strength-good { background: linear-gradient(90deg, #10b981 0%, #10b981 75%, #e5e7eb 75%); }
+.strength-strong { background: linear-gradient(90deg, #10b981 0%, #10b981 100%); }
+
+/* Smooth height transitions for expanding elements */
+.smooth-height {
+  transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+  overflow: hidden;
+}
+
 /* Smooth transitions */
 * {
   transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;

@@ -331,9 +331,81 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                     {errors.password}
                   </p>
                 )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Min 8 characters, include uppercase, lowercase, and number
-                </p>
+                {/* Password Strength Meter */}
+                {formData.password && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 rounded-full ${
+                          (() => {
+                            const p = formData.password;
+                            const hasLower = /[a-z]/.test(p);
+                            const hasUpper = /[A-Z]/.test(p);
+                            const hasNumber = /\d/.test(p);
+                            const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(p);
+                            const isLong = p.length >= 12;
+                            const score = [hasLower, hasUpper, hasNumber, hasSpecial, isLong, p.length >= 8].filter(Boolean).length;
+                            if (score <= 2) return "w-1/4 bg-red-500";
+                            if (score === 3) return "w-1/2 bg-amber-500";
+                            if (score === 4) return "w-3/4 bg-emerald-400";
+                            return "w-full bg-emerald-500";
+                          })()
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`font-medium ${
+                        (() => {
+                          const p = formData.password;
+                          const hasLower = /[a-z]/.test(p);
+                          const hasUpper = /[A-Z]/.test(p);
+                          const hasNumber = /\d/.test(p);
+                          const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(p);
+                          const isLong = p.length >= 12;
+                          const score = [hasLower, hasUpper, hasNumber, hasSpecial, isLong, p.length >= 8].filter(Boolean).length;
+                          if (score <= 2) return "text-red-600";
+                          if (score === 3) return "text-amber-600";
+                          if (score === 4) return "text-emerald-500";
+                          return "text-emerald-600";
+                        })()
+                      }`}>
+                        {(() => {
+                          const p = formData.password;
+                          const hasLower = /[a-z]/.test(p);
+                          const hasUpper = /[A-Z]/.test(p);
+                          const hasNumber = /\d/.test(p);
+                          const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(p);
+                          const isLong = p.length >= 12;
+                          const score = [hasLower, hasUpper, hasNumber, hasSpecial, isLong, p.length >= 8].filter(Boolean).length;
+                          if (score <= 2) return "Weak";
+                          if (score === 3) return "Fair";
+                          if (score === 4) return "Good";
+                          return "Strong";
+                        })()}
+                      </span>
+                      <span className="text-gray-400">{formData.password.length} characters</span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {[
+                    { check: formData.password.length >= 8, label: "8+ chars" },
+                    { check: /[A-Z]/.test(formData.password), label: "Uppercase" },
+                    { check: /[a-z]/.test(formData.password), label: "Lowercase" },
+                    { check: /\d/.test(formData.password), label: "Number" },
+                  ].map((req, idx) => (
+                    <span
+                      key={idx}
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-all ${
+                        req.check
+                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                          : "bg-gray-100 text-gray-400 border border-gray-200"
+                      }`}
+                    >
+                      {req.check && "✓ "}{req.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="space-y-2">
@@ -400,6 +472,14 @@ const Signup: React.FC<SignupProps> = ({ onBack, onSuccess }) => {
                     {errors.address}
                   </p>
                 )}
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-gray-400">Minimum 10 characters required</p>
+                  <span className={`text-xs font-medium ${
+                    formData.address.length >= 10 ? "text-emerald-600" : "text-gray-400"
+                  }`}>
+                    {formData.address.length}/200
+                  </span>
+                </div>
               </div>
             </div>
 

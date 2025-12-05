@@ -4,6 +4,155 @@ This document outlines the backend changes required to sync with frontend improv
 
 ---
 
+## 🔴 CRITICAL: Token-Based Session Persistence (HIGH PRIORITY)
+
+The frontend needs to persist user sessions across page refreshes. Currently, users are logged out when the page is refreshed. Implement the following:
+
+### Token Storage & Validation Flow
+
+```javascript
+// Frontend will store token in localStorage after login
+// On page load, frontend will call /api/auth/me to validate the token
+// If valid, user remains logged in
+// If invalid/expired, user is redirected to login
+
+// Expected login response format:
+{
+  "user": {
+    "id": "...",
+    "email": "...",
+    "firstName": "...",
+    "lastName": "...",
+    "role": "resident|staff|admin",
+    "avatar": "...",
+    // ... other user fields
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 86400 // 24 hours in seconds
+}
+```
+
+### Login Endpoint Update
+
+**Endpoint:** `POST /api/auth/login`  
+**Response should include token with expiration:**
+
+```javascript
+// routes/auth.js - Updated login endpoint
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Generate JWT with expiration
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" } // Token expires in 24 hours
+    );
+
+    // Return user data (without password) and token
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    res.json({
+      user: userResponse,
+      token,
+      expiresIn: 86400 // 24 hours in seconds
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+```
+
+### Token Refresh Endpoint (Optional but Recommended)
+
+**Endpoint:** `POST /api/auth/refresh`  
+**Purpose:** Refresh token before it expires
+
+```javascript
+// routes/auth.js - Token refresh endpoint
+router.post("/refresh", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate new token
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.json({
+      user,
+      token,
+      expiresIn: 86400
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+```
+
+### Auth Middleware Update
+
+```javascript
+// middleware/auth.js
+const jwt = require("jsonwebtoken");
+
+const auth = (req, res, next) => {
+  try {
+    // Get token from header
+    const authHeader = req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "No token, authorization denied" });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ 
+        message: "Token expired", 
+        code: "TOKEN_EXPIRED" 
+      });
+    }
+    res.status(401).json({ message: "Token is not valid" });
+  }
+};
+
+module.exports = auth;
+```
+
+### Environment Variables Required
+
+```env
+JWT_SECRET=your-super-secret-key-here-change-in-production
+JWT_EXPIRES_IN=24h
+```
+
+> ⚠️ **IMPORTANT:** The frontend will store the token in `localStorage` and send it in the `Authorization: Bearer <token>` header for all authenticated requests. Make sure all protected routes use the `auth` middleware.
+
+---
+
 ## 🔴 CRITICAL: New Endpoints Required
 
 ### 1. Health Check Endpoint
