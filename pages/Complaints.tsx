@@ -581,10 +581,13 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               </Button>
             </div>
           )}
-          <Button onClick={() => setCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            File Complaint
-          </Button>
+          {/* Only residents can file complaints */}
+          {user.role === "resident" && (
+            <Button onClick={() => setCreateModal(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              File Complaint
+            </Button>
+          )}
         </div>
       </div>
 

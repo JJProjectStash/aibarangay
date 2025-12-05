@@ -627,10 +627,13 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
               : "Request equipment or reserve facilities for your events"}
           </p>
         </div>
-        <Button onClick={() => setCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Request
-        </Button>
+        {/* Only residents can submit new requests */}
+        {user.role === "resident" && (
+          <Button onClick={() => setCreateModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Request
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}

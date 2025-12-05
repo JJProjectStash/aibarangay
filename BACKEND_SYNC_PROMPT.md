@@ -153,6 +153,68 @@ JWT_EXPIRES_IN=24h
 
 ---
 
+## 🔴 CRITICAL: Role-Based Endpoint Restrictions
+
+**Problem:** Admin and Staff should NOT be able to submit complaints or service requests. They should only be able to review, update, and delete them. Only Residents can submit new requests.
+
+### Middleware Implementation
+
+```javascript
+// middleware/roleCheck.js
+const residentOnly = (req, res, next) => {
+  if (req.user.role !== 'resident') {
+    return res.status(403).json({ 
+      message: 'Only residents can submit requests. Admins and staff can only manage existing requests.'
+    });
+  }
+  next();
+};
+
+const staffOrAdmin = (req, res, next) => {
+  if (!['staff', 'admin'].includes(req.user.role)) {
+    return res.status(403).json({ 
+      message: 'Only staff and admin can perform this action'
+    });
+  }
+  next();
+};
+
+module.exports = { residentOnly, staffOrAdmin };
+```
+
+### Apply to Routes
+
+```javascript
+// routes/complaints.js
+const { residentOnly, staffOrAdmin } = require('../middleware/roleCheck');
+
+// Only residents can CREATE complaints
+router.post('/', auth, residentOnly, async (req, res) => { ... });
+
+// Staff/Admin can UPDATE status
+router.put('/:id/status', auth, staffOrAdmin, async (req, res) => { ... });
+
+// Staff/Admin can DELETE (or restrict to admin only if preferred)
+router.delete('/:id', auth, staffOrAdmin, async (req, res) => { ... });
+
+
+// routes/services.js
+const { residentOnly, staffOrAdmin } = require('../middleware/roleCheck');
+
+// Only residents can CREATE service requests
+router.post('/', auth, residentOnly, async (req, res) => { ... });
+
+// Staff/Admin can UPDATE status
+router.put('/:id/status', auth, staffOrAdmin, async (req, res) => { ... });
+
+// Staff/Admin can DELETE
+router.delete('/:id', auth, staffOrAdmin, async (req, res) => { ... });
+```
+
+> ⚠️ **IMPORTANT:** The frontend already hides the "New Request" and "File Complaint" buttons for admin/staff. This backend middleware provides a security layer to prevent direct API calls from bypassing the UI restrictions.
+
+---
+
 ## 🔴 CRITICAL: New Endpoints Required
 
 ### 1. Health Check Endpoint

@@ -145,10 +145,15 @@ const Notifications: React.FC<NotificationsProps> = ({ user, onNavigate }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const markAllRead = async () => {
+    if (unreadCount === 0) return;
+    
     setMarkingAllRead(true);
     try {
       await api.markAllNotificationsRead(user.id);
-      await fetchNotifs();
+      // Update local state immediately for instant feedback
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true }))
+      );
       showToast("Success", "All notifications marked as read", "success");
     } catch (error) {
       showToast("Error", "Failed to mark notifications as read", "error");
