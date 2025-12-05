@@ -651,7 +651,12 @@ export default function App() {
       case "announcements":
         return <Announcements user={user!} />;
       case "notifications":
-        return <Notifications user={user!} />;
+        return (
+          <Notifications
+            user={user!}
+            onNavigate={(page) => setCurrentPage(page as Page)}
+          />
+        );
       case "profile":
         return <Profile user={user!} onUpdate={setUser} />;
       case "help":

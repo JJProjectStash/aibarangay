@@ -127,6 +127,9 @@ export interface Notification {
   type: "info" | "warning" | "success" | "error";
   isRead: boolean;
   createdAt: string;
+  link?: string; // Optional: URL path to navigate to (e.g., "/complaints", "/services")
+  relatedType?: "complaint" | "service" | "event" | "announcement"; // Type of related item
+  relatedId?: string; // ID of the related item
 }
 
 export interface AuditLog {

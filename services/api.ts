@@ -1003,6 +1003,20 @@ class ApiService {
     });
   }
 
+  async markNotificationRead(id: string): Promise<void> {
+    await apiRequest(`/notifications/${id}/read`, {
+      method: "PUT",
+      skipDedup: true,
+    });
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    await apiRequest(`/notifications/${id}`, {
+      method: "DELETE",
+      skipDedup: true,
+    });
+  }
+
   // Real-time Simulation (kept for compatibility, but won't work with real backend)
   simulateIncomingNotification(userId: string): Notification | null {
     return null;
