@@ -527,6 +527,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>("landing");
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const { showToast } = useToast();
 
   // Notification State
@@ -535,6 +536,24 @@ export default function App() {
 
   // Use ref to track if interval is already set to prevent duplicates
   const notificationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Restore session on app load
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const restoredUser = await api.validateSession();
+        if (restoredUser) {
+          setUser(restoredUser);
+          setCurrentPage("dashboard");
+        }
+      } catch (error) {
+        console.log("No valid session found");
+      } finally {
+        setIsRestoringSession(false);
+      }
+    };
+    restoreSession();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -680,6 +699,21 @@ export default function App() {
         return <NotFound onGoHome={() => setCurrentPage("dashboard")} />;
     }
   };
+
+  // Show loading screen while restoring session
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-teal-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Home className="w-8 h-8 text-white" />
+          </div>
+          <div className="inline-block w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+          <p className="text-white/80 text-sm font-medium">Loading iBarangay...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Unauthenticated Routes
   if (!user) {

@@ -976,8 +976,14 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               maxLength={100}
               error={errors.title}
             />
-            <p className="text-xs text-gray-500">
-              {formData.title.length}/100 characters
+            <p className={`text-xs ${
+              formData.title.length >= 5 && formData.title.length <= 100 
+                ? "text-emerald-600" 
+                : formData.title.length > 100 
+                  ? "text-red-600" 
+                  : "text-gray-500"
+            }`}>
+              {formData.title.length}/100 characters {formData.title.length < 5 && "(min 5)"}
             </p>
           </div>
 
@@ -995,8 +1001,14 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               maxLength={1000}
               error={errors.description}
             />
-            <p className="text-xs text-gray-500">
-              {formData.description.length}/1000 characters
+            <p className={`text-xs ${
+              formData.description.length >= 20 && formData.description.length <= 1000 
+                ? "text-emerald-600" 
+                : formData.description.length > 1000 
+                  ? "text-red-600" 
+                  : "text-gray-500"
+            }`}>
+              {formData.description.length}/1000 characters {formData.description.length < 20 && "(min 20)"}
             </p>
           </div>
 
