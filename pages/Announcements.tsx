@@ -10,10 +10,32 @@ import {
   Label,
   Textarea,
   Select,
+  Skeleton,
 } from "../components/UI";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
 import { Announcement, User } from "../types";
+import { ErrorState } from "../components/Loading";
+
+const AnnouncementSkeleton = () => (
+  <Card className="animate-pulse">
+    <CardContent className="p-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Skeleton className="h-5 w-16" />
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <Skeleton className="h-7 w-3/4 mb-2" />
+      <Skeleton className="h-4 w-full mb-2" />
+      <Skeleton className="h-4 w-full mb-2" />
+      <Skeleton className="h-4 w-2/3" />
+      <div className="mt-4 flex items-center gap-3">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+    </CardContent>
+  </Card>
+);
 
 interface AnnouncementProps {
   user: User;
@@ -22,8 +44,10 @@ interface AnnouncementProps {
 const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [createModal, setCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pinningId, setPinningId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     content: "",
@@ -39,6 +63,8 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
   }, []);
 
   const fetchAnnouncements = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const data = await api.getAnnouncements();
       // Sort: Pinned first, then by date (newest first)
@@ -52,7 +78,8 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
           return a.isPinned ? -1 : 1;
         })
       );
-    } catch (error) {
+    } catch (err) {
+      setError("Failed to load announcements");
       showToast("Error", "Failed to load announcements", "error");
     } finally {
       setLoading(false);
@@ -132,6 +159,7 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
   };
 
   const togglePin = async (id: string) => {
+    setPinningId(id);
     try {
       await api.toggleAnnouncementPin(id);
       const data = await api.getAnnouncements();
@@ -151,8 +179,10 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
         updated?.isPinned ? "Announcement pinned" : "Announcement unpinned",
         "success"
       );
-    } catch (error) {
+    } catch (err) {
       showToast("Error", "Failed to update announcement", "error");
+    } finally {
+      setPinningId(null);
     }
   };
 
@@ -173,10 +203,17 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
         )}
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-          <p className="mt-4 text-gray-500">Loading announcements...</p>
+      {error && !loading ? (
+        <ErrorState
+          title="Failed to load announcements"
+          message={error}
+          onRetry={fetchAnnouncements}
+        />
+      ) : loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <AnnouncementSkeleton key={i} />
+          ))}
         </div>
       ) : announcements.length === 0 ? (
         <Card>
@@ -279,18 +316,27 @@ const Announcements: React.FC<AnnouncementProps> = ({ user }) => {
                   {user.role !== "resident" && (
                     <button
                       onClick={() => togglePin(announcement.id)}
+                      disabled={pinningId === announcement.id}
                       className={`p-2 rounded-full transition-all ${
-                        announcement.isPinned
+                        pinningId === announcement.id
+                          ? "opacity-50 cursor-not-allowed"
+                          : announcement.isPinned
                           ? "text-primary-600 bg-primary-100 hover:bg-primary-200"
                           : "text-gray-400 hover:text-primary-600 hover:bg-gray-100"
                       }`}
                       title={
-                        announcement.isPinned
+                        pinningId === announcement.id
+                          ? "Updating..."
+                          : announcement.isPinned
                           ? "Unpin announcement"
                           : "Pin announcement"
                       }
                     >
-                      <Pin className="w-5 h-5" />
+                      {pinningId === announcement.id ? (
+                        <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Pin className="w-5 h-5" />
+                      )}
                     </button>
                   )}
                 </div>

@@ -43,12 +43,54 @@ const setToken = (token: string) => localStorage.setItem("token", token);
 // Helper to remove auth token
 const removeToken = () => localStorage.removeItem("token");
 
+// Helper to get token expiry time
+const getTokenExpiry = () => localStorage.getItem("tokenExpiry");
+
+// Helper to set token expiry time
+const setTokenExpiry = (expiry: string) =>
+  localStorage.setItem("tokenExpiry", expiry);
+
+// Helper to remove token expiry
+const removeTokenExpiry = () => localStorage.removeItem("tokenExpiry");
+
+// Check if token is expired or about to expire (within 5 minutes)
+const isTokenExpired = (): boolean => {
+  const expiry = getTokenExpiry();
+  if (!expiry) return false; // If no expiry set, assume valid
+
+  const expiryTime = parseInt(expiry, 10);
+  const now = Date.now();
+  const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+
+  return now >= expiryTime - bufferTime;
+};
+
+// Parse JWT to get expiry time
+const parseJwtExpiry = (token: string): number | null => {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const payload = JSON.parse(jsonPayload);
+    return payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
+  } catch {
+    return null;
+  }
+};
+
 // Simple ApiError type so callers can examine response status
 class ApiError extends Error {
   status?: number;
-  constructor(message?: string, status?: number) {
+  isRetryable?: boolean;
+  constructor(message?: string, status?: number, isRetryable?: boolean) {
     super(message);
     this.status = status;
+    this.isRetryable = isRetryable;
     Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
@@ -56,11 +98,42 @@ class ApiError extends Error {
 // Request deduplication cache - prevents duplicate simultaneous requests
 const pendingRequests = new Map<string, Promise<any>>();
 
-// Helper for API requests with deduplication
+// Retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelay: 1000,
+  maxDelay: 10000,
+  backoffFactor: 2,
+  retryableStatuses: [408, 429, 500, 502, 503, 504],
+};
+
+// Sleep helper for retry delays
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Check if error is retryable
+const isRetryableError = (status?: number): boolean => {
+  if (!status) return true; // Network errors are retryable
+  return RETRY_CONFIG.retryableStatuses.includes(status);
+};
+
+// Helper for API requests with deduplication and retry logic
 const apiRequest = async (
   endpoint: string,
-  options: RequestInit & { skipAuth?: boolean; skipDedup?: boolean } = {}
+  options: RequestInit & {
+    skipAuth?: boolean;
+    skipDedup?: boolean;
+    skipRetry?: boolean;
+    maxRetries?: number;
+  } = {}
 ) => {
+  // Check if token is expired before making request
+  if (!options.skipAuth && getToken() && isTokenExpired()) {
+    console.warn("[API] Token expired, clearing auth state");
+    removeToken();
+    removeTokenExpiry();
+    throw new ApiError("Session expired. Please login again.", 401);
+  }
+
   const token = getToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -85,45 +158,108 @@ const apiRequest = async (
     return pendingRequests.get(requestKey);
   }
 
-  // Create the request promise
-  const requestPromise = (async () => {
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        ...options,
-        headers,
-      });
-    } catch (err) {
-      console.error(`Network error requesting ${url}:`, err);
-      throw new Error((err as Error).message || "Network error");
-    } finally {
-      // Remove from pending requests when done
-      pendingRequests.delete(requestKey);
-    }
+  const maxRetries = options.skipRetry
+    ? 0
+    : options.maxRetries ?? RETRY_CONFIG.maxRetries;
 
-    if (!response.ok) {
-      // If unauthorized and we sent a token, the token might be invalid/expired
-      // Remove it and throw error to force re-login
-      if (response.status === 401 && token && !options.skipAuth) {
-        console.warn(
-          `Authorization failure for ${url}: token appears to be invalid or expired.`
+  // Create the request promise with retry logic
+  const requestPromise = (async () => {
+    let lastError: ApiError | null = null;
+    let delay = RETRY_CONFIG.initialDelay;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          ...options,
+          headers,
+        });
+
+        if (!response.ok) {
+          // If unauthorized and we sent a token, the token might be invalid/expired
+          // Remove it and throw error to force re-login
+          if (response.status === 401 && token && !options.skipAuth) {
+            console.warn(
+              `Authorization failure for ${url}: token appears to be invalid or expired.`
+            );
+            removeToken();
+            removeTokenExpiry();
+            const error = await response
+              .json()
+              .catch(() => ({ message: "Not authorized" }));
+            throw new ApiError(
+              error.message || "Session expired. Please login again.",
+              response.status,
+              false // Not retryable
+            );
+          }
+
+          const error = await response
+            .json()
+            .catch(() => ({ message: "Request failed" }));
+
+          const apiError = new ApiError(
+            error.message || "Request failed",
+            response.status,
+            isRetryableError(response.status)
+          );
+
+          // If not retryable or last attempt, throw
+          if (!apiError.isRetryable || attempt === maxRetries) {
+            throw apiError;
+          }
+
+          lastError = apiError;
+        } else {
+          // Success - return the response
+          return response.json();
+        }
+      } catch (err) {
+        // Network errors are retryable
+        if (err instanceof ApiError) {
+          if (!err.isRetryable || attempt === maxRetries) {
+            throw err;
+          }
+          lastError = err;
+        } else {
+          // Network error
+          console.error(
+            `Network error requesting ${url} (attempt ${attempt + 1}):`,
+            err
+          );
+          if (attempt === maxRetries) {
+            throw new ApiError(
+              (err as Error).message || "Network error",
+              undefined,
+              true
+            );
+          }
+          lastError = new ApiError(
+            (err as Error).message || "Network error",
+            undefined,
+            true
+          );
+        }
+      }
+
+      // Wait before retrying (with exponential backoff)
+      if (attempt < maxRetries) {
+        console.log(
+          `[API] Retrying ${endpoint} in ${delay}ms (attempt ${
+            attempt + 1
+          }/${maxRetries})`
         );
-        removeToken();
-        const error = await response
-          .json()
-          .catch(() => ({ message: "Not authorized" }));
-        throw new ApiError(
-          error.message || "Session expired. Please login again.",
-          response.status
+        await sleep(delay);
+        delay = Math.min(
+          delay * RETRY_CONFIG.backoffFactor,
+          RETRY_CONFIG.maxDelay
         );
       }
-      const error = await response
-        .json()
-        .catch(() => ({ message: "Request failed" }));
-      throw new ApiError(error.message || "Request failed", response.status);
     }
 
-    return response.json();
+    // Remove from pending requests on final failure
+    pendingRequests.delete(requestKey);
+    throw lastError || new ApiError("Request failed after retries");
   })();
 
   // Store in pending requests (only for GET)
@@ -135,6 +271,45 @@ const apiRequest = async (
 };
 
 class ApiService {
+  // Check if user has valid session
+  async validateSession(): Promise<User | null> {
+    const token = getToken();
+    if (!token) return null;
+
+    // Check if token is expired locally first
+    if (isTokenExpired()) {
+      removeToken();
+      removeTokenExpiry();
+      return null;
+    }
+
+    try {
+      // Try to get current user from server
+      const data = await apiRequest("/auth/me", { skipRetry: true });
+      return {
+        id: data._id,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        role: data.role,
+        avatar: data.avatar,
+        address: data.address,
+        phoneNumber: data.phoneNumber,
+        isVerified: data.isVerified,
+        idDocumentUrl: data.idDocumentUrl,
+      };
+    } catch {
+      removeToken();
+      removeTokenExpiry();
+      return null;
+    }
+  }
+
+  // Health check endpoint
+  async healthCheck(): Promise<{ status: string; timestamp: string }> {
+    return apiRequest("/health", { skipAuth: true, skipRetry: true });
+  }
+
   // Auth
   async login(email: string, password?: string): Promise<User | null> {
     try {
@@ -146,6 +321,11 @@ class ApiService {
 
       if (data.token) {
         setToken(data.token);
+        // Parse and store token expiry
+        const expiry = parseJwtExpiry(data.token);
+        if (expiry) {
+          setTokenExpiry(expiry.toString());
+        }
       }
 
       return {
@@ -175,6 +355,11 @@ class ApiService {
 
     if (data.token) {
       setToken(data.token);
+      // Parse and store token expiry
+      const expiry = parseJwtExpiry(data.token);
+      if (expiry) {
+        setTokenExpiry(expiry.toString());
+      }
     }
 
     return {
@@ -214,6 +399,7 @@ class ApiService {
 
   logout() {
     removeToken();
+    removeTokenExpiry();
   }
 
   // Dashboard Stats

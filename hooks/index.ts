@@ -1,5 +1,14 @@
 // Hooks exports
-export { useAsync, usePagination, useDebounce } from "./useAsync";
+export {
+  useAsync,
+  usePagination,
+  useDebounce,
+  useEscapeKey,
+  useKeyboardShortcut,
+  useClickOutside,
+  useRetry,
+  useLocalStorage,
+} from "./useAsync";
 export type {
   AsyncState,
   PaginationState,

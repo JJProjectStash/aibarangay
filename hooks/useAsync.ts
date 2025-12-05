@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 
 /**
  * Hook state for async operations
@@ -185,4 +185,198 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
   }, [value, delay]);
 
   return debouncedValue;
+}
+
+/**
+ * Hook for handling Escape key to close modals/dropdowns
+ */
+export function useEscapeKey(onEscape: () => void, isActive: boolean = true) {
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onEscape();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onEscape, isActive]);
+}
+
+/**
+ * Hook for handling keyboard shortcuts
+ */
+export function useKeyboardShortcut(
+  key: string,
+  callback: () => void,
+  options: { ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean } = {}
+) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const { ctrlKey = false, shiftKey = false, altKey = false } = options;
+
+      if (
+        event.key.toLowerCase() === key.toLowerCase() &&
+        event.ctrlKey === ctrlKey &&
+        event.shiftKey === shiftKey &&
+        event.altKey === altKey
+      ) {
+        event.preventDefault();
+        callback();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [key, callback, options]);
+}
+
+/**
+ * Hook for click outside detection (useful for dropdowns)
+ */
+export function useClickOutside<T extends HTMLElement>(
+  ref: React.RefObject<T | null>,
+  callback: () => void,
+  isActive: boolean = true
+) {
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        callback();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [ref, callback, isActive]);
+}
+
+/**
+ * Hook for retry logic with exponential backoff
+ */
+export function useRetry<T>(
+  asyncFunction: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    initialDelay?: number;
+    maxDelay?: number;
+    backoffFactor?: number;
+  } = {}
+) {
+  const {
+    maxRetries = 3,
+    initialDelay = 1000,
+    maxDelay = 10000,
+    backoffFactor = 2,
+  } = options;
+
+  const [state, setState] = useState<{
+    data: T | null;
+    isLoading: boolean;
+    error: Error | null;
+    retryCount: number;
+  }>({
+    data: null,
+    isLoading: false,
+    error: null,
+    retryCount: 0,
+  });
+
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const execute = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+    let lastError: Error | null = null;
+    let delay = initialDelay;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const data = await asyncFunction();
+        if (mountedRef.current) {
+          setState({
+            data,
+            isLoading: false,
+            error: null,
+            retryCount: attempt,
+          });
+        }
+        return data;
+      } catch (error) {
+        lastError = error as Error;
+
+        if (attempt < maxRetries) {
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay = Math.min(delay * backoffFactor, maxDelay);
+
+          if (mountedRef.current) {
+            setState((prev) => ({ ...prev, retryCount: attempt + 1 }));
+          }
+        }
+      }
+    }
+
+    if (mountedRef.current) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: lastError,
+        retryCount: maxRetries,
+      }));
+    }
+    throw lastError;
+  }, [asyncFunction, maxRetries, initialDelay, maxDelay, backoffFactor]);
+
+  const reset = useCallback(() => {
+    setState({ data: null, isLoading: false, error: null, retryCount: 0 });
+  }, []);
+
+  return { ...state, execute, reset };
+}
+
+/**
+ * Hook for local storage with automatic sync
+ */
+export function useLocalStorage<T>(
+  key: string,
+  initialValue: T
+): [T, (value: T | ((prev: T) => T)) => void] {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(`Error reading localStorage key "${key}":`, error);
+      return initialValue;
+    }
+  });
+
+  const setValue = useCallback(
+    (value: T | ((prev: T) => T)) => {
+      try {
+        const valueToStore =
+          value instanceof Function ? value(storedValue) : value;
+        setStoredValue(valueToStore);
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      } catch (error) {
+        console.error(`Error setting localStorage key "${key}":`, error);
+      }
+    },
+    [key, storedValue]
+  );
+
+  return [storedValue, setValue];
 }

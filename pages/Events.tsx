@@ -1,29 +1,58 @@
 import React, { useEffect, useState } from "react";
-import { Calendar, MapPin, Users, Clock, Eye } from "lucide-react";
-import { Button, Card, CardContent, Badge } from "../components/UI";
+import { Calendar, MapPin, Users, Clock, Eye, CalendarX } from "lucide-react";
+import { Button, Card, CardContent, Badge, Skeleton } from "../components/UI";
 import EventRegisteredModal from "../components/EventRegisteredModal";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
 import { Event, User as UserType } from "../types";
+import { EmptyState, ErrorState } from "../components/Loading";
 
 interface EventsProps {
   user: UserType;
   onNavigate?: (page: string) => void;
 }
 
+const EventCardSkeleton = () => (
+  <Card className="overflow-hidden flex flex-col h-full animate-pulse">
+    <div className="h-48 w-full bg-gray-200" />
+    <CardContent className="p-5 flex-1 flex flex-col">
+      <Skeleton className="h-6 w-3/4 mb-4" />
+      <div className="space-y-3 mb-6 flex-1">
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+      <div className="mt-auto pt-4 border-t border-gray-100">
+        <Skeleton className="h-10 w-full" />
+      </div>
+    </CardContent>
+  </Card>
+);
+
 const Events: React.FC<EventsProps> = ({ user, onNavigate }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<UserType[]>([]);
   const [showRegisteredModal, setShowRegisteredModal] = useState(false);
+  const [registeringId, setRegisteringId] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const fetchEvents = async () => {
     setLoading(true);
-    const data = await api.getEvents();
-    setEvents(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await api.getEvents();
+      setEvents(data);
+    } catch (err) {
+      setError("Failed to load events");
+      showToast("Error", "Failed to load events", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -31,6 +60,7 @@ const Events: React.FC<EventsProps> = ({ user, onNavigate }) => {
   }, []);
 
   const handleRegister = async (eventId: string) => {
+    setRegisteringId(eventId);
     try {
       await api.registerForEvent(eventId, user.id);
       showToast("Success", "Successfully registered for event", "success");
@@ -38,6 +68,8 @@ const Events: React.FC<EventsProps> = ({ user, onNavigate }) => {
     } catch (err) {
       console.error("Event registration failed", err);
       showToast("Error", "Failed to register for event", "error");
+    } finally {
+      setRegisteringId(null);
     }
   };
 
@@ -68,8 +100,24 @@ const Events: React.FC<EventsProps> = ({ user, onNavigate }) => {
         )}
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">Loading events...</div>
+      {error && !loading ? (
+        <ErrorState
+          title="Failed to load events"
+          message={error}
+          onRetry={fetchEvents}
+        />
+      ) : loading ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <EventCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : events.length === 0 ? (
+        <EmptyState
+          icon={<CalendarX className="w-8 h-8" />}
+          title="No upcoming events"
+          description="Check back later for community events and gatherings."
+        />
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {events.map((event) => (
@@ -147,9 +195,15 @@ const Events: React.FC<EventsProps> = ({ user, onNavigate }) => {
                     <Button
                       onClick={() => handleRegister(event.id)}
                       className="w-full"
-                      disabled={event.currentAttendees >= event.maxAttendees}
+                      disabled={
+                        event.currentAttendees >= event.maxAttendees ||
+                        registeringId === event.id
+                      }
+                      isLoading={registeringId === event.id}
                     >
-                      {event.currentAttendees >= event.maxAttendees
+                      {registeringId === event.id
+                        ? "Registering..."
+                        : event.currentAttendees >= event.maxAttendees
                         ? "Full"
                         : "Register Now"}
                     </Button>

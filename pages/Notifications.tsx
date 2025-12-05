@@ -7,10 +7,25 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
+  BellOff,
 } from "lucide-react";
-import { Button, Card, CardContent } from "../components/UI";
+import { Button, Card, CardContent, Skeleton } from "../components/UI";
 import { api } from "../services/api";
 import { Notification, User } from "../types";
+import { EmptyState } from "../components/Loading";
+
+const NotificationSkeleton = () => (
+  <Card className="animate-pulse">
+    <CardContent className="p-4 flex items-start gap-4">
+      <Skeleton className="w-5 h-5 mt-1 rounded-full" />
+      <div className="flex-1">
+        <Skeleton className="h-4 w-48 mb-2" />
+        <Skeleton className="h-3 w-full mb-2" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </CardContent>
+  </Card>
+);
 
 interface NotificationsProps {
   user: User;
@@ -87,11 +102,17 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="text-center py-12">Loading...</div>
-        ) : notifications.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No notifications yet.
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <NotificationSkeleton key={i} />
+            ))}
           </div>
+        ) : notifications.length === 0 ? (
+          <EmptyState
+            icon={<BellOff className="w-8 h-8" />}
+            title="No notifications yet"
+            description="You'll see updates about your complaints and service requests here."
+          />
         ) : (
           notifications.map((notif) => (
             <Card
