@@ -274,7 +274,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
         </div>
       )}
 
-      {/* Stat Cards */}
+      {/* Stat Cards - Only for Residents (Admin/Staff use Quick Actions instead) */}
+      {user.role === "resident" && (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {loading
           ? Array(4)
@@ -312,6 +313,74 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
               </Card>
             ))}
       </div>
+      )}
+
+      {/* Quick Actions Widget - Admin/Staff */}
+      {(user.role === "admin" || user.role === "staff") && (
+        <div className="grid lg:grid-cols-4 gap-4">
+          {/* Pending Complaints Action */}
+          <button
+            onClick={() => onNavigate?.("complaints")}
+            className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-orange-200 hover:bg-orange-50/50 transition-all group"
+          >
+            <div className="p-3 bg-orange-100 rounded-xl">
+              <AlertCircle className="w-6 h-6 text-orange-600" />
+            </div>
+            <div className="text-left flex-1">
+              <p className="text-2xl font-bold text-gray-900">{stats?.pendingComplaints || 0}</p>
+              <p className="text-gray-500 text-sm">Pending Complaints</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
+          </button>
+
+          {/* Pending Services Action */}
+          <button
+            onClick={() => onNavigate?.("services")}
+            className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-200 hover:bg-blue-50/50 transition-all group"
+          >
+            <div className="p-3 bg-blue-100 rounded-xl">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <div className="text-left flex-1">
+              <p className="text-2xl font-bold text-gray-900">{stats?.pendingServices || stats?.activeServices || 0}</p>
+              <p className="text-gray-500 text-sm">Service Requests</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+          </button>
+
+          {/* Manage Users Action (Admin Only) */}
+          {user.role === "admin" && (
+            <button
+              onClick={() => onNavigate?.("admin-users")}
+              className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-purple-200 hover:bg-purple-50/50 transition-all group"
+            >
+              <div className="p-3 bg-purple-100 rounded-xl">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="text-2xl font-bold text-gray-900">{stats?.totalResidents || 0}</p>
+                <p className="text-gray-500 text-sm">Manage Users</p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+            </button>
+          )}
+
+          {/* Upcoming Events Action */}
+          <button
+            onClick={() => onNavigate?.("events")}
+            className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary-200 hover:bg-primary-50/50 transition-all group"
+          >
+            <div className="p-3 bg-primary-100 rounded-xl">
+              <Calendar className="w-6 h-6 text-primary-600" />
+            </div>
+            <div className="text-left flex-1">
+              <p className="text-2xl font-bold text-gray-900">{stats?.upcomingEvents || 0}</p>
+              <p className="text-gray-500 text-sm">Upcoming Events</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-primary-500 group-hover:translate-x-1 transition-all" />
+          </button>
+        </div>
+      )}
 
       {/* Analytics Section - Only for Staff/Admin */}
       {(user.role === "admin" || user.role === "staff") && (

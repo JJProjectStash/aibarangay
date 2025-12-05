@@ -8,6 +8,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   X,
   Filter,
   Building2,
@@ -578,6 +579,27 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     }
   };
 
+  // Check if a service request is overdue (borrowed and past expected return date)
+  const isOverdue = (service: ServiceRequest) => {
+    if (service.status !== "borrowed" && service.status !== "approved") return false;
+    const returnDate = new Date(service.expectedReturnDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    returnDate.setHours(0, 0, 0, 0);
+    return today > returnDate;
+  };
+
+  // Get days until due or days overdue
+  const getDueDays = (service: ServiceRequest) => {
+    const returnDate = new Date(service.expectedReturnDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    returnDate.setHours(0, 0, 0, 0);
+    const diffTime = returnDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   // myServices used for stats when user is not admin
   const myServices = filteredServices.filter((s) => s.userId === user.id);
 
@@ -857,10 +879,16 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                 </div>
               )}
 
-            {pagination.items.map((service) => (
+            {pagination.items.map((service) => {
+              const overdue = isOverdue(service);
+              const dueDays = getDueDays(service);
+              
+              return (
               <Card
                 key={service.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
+                className={`hover:shadow-md transition-shadow cursor-pointer ${
+                  overdue ? "border-red-300 bg-red-50/50 ring-1 ring-red-200" : ""
+                }`}
                 onClick={() =>
                   setDetailModal({ isOpen: true, service: service })
                 }
@@ -897,6 +925,20 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                           >
                             {service.requestType}
                           </Badge>
+                          {/* Overdue Badge */}
+                          {overdue && (
+                            <Badge variant="danger" className="animate-pulse">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              {Math.abs(dueDays)} days overdue
+                            </Badge>
+                          )}
+                          {/* Due Soon Warning (within 2 days) */}
+                          {!overdue && dueDays >= 0 && dueDays <= 2 && (service.status === "borrowed" || service.status === "approved") && (
+                            <Badge variant="warning">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {dueDays === 0 ? "Due today" : `Due in ${dueDays} day${dueDays > 1 ? "s" : ""}`}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-gray-600 line-clamp-2">
                           {service.purpose}
@@ -965,7 +1007,8 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
                   )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (

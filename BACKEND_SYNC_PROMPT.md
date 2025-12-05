@@ -215,6 +215,116 @@ router.delete('/:id', auth, staffOrAdmin, async (req, res) => { ... });
 
 ---
 
+## 🟡 NEW: Overdue Service Notifications
+
+**Purpose:** Automatically notify users when their borrowed items are overdue or approaching due date.
+
+### Backend Requirements
+
+```javascript
+// Scheduled job (run daily at 8 AM) - Use node-cron or similar
+const cron = require('node-cron');
+
+// Check for overdue and due soon services
+cron.schedule('0 8 * * *', async () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Find overdue items (borrowed/approved and past expectedReturnDate)
+  const overdueServices = await Service.find({
+    status: { $in: ['borrowed', 'approved'] },
+    expectedReturnDate: { $lt: today }
+  }).populate('userId');
+  
+  for (const service of overdueServices) {
+    await Notification.create({
+      userId: service.userId._id,
+      title: '⚠️ Overdue Return Notice',
+      message: `Your request for "${service.itemName}" is overdue. Please return it as soon as possible.`,
+      type: 'warning',
+      relatedType: 'service',
+      relatedId: service._id
+    });
+  }
+  
+  // Find items due within 2 days
+  const twoDaysFromNow = new Date(today);
+  twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
+  
+  const dueSoonServices = await Service.find({
+    status: { $in: ['borrowed', 'approved'] },
+    expectedReturnDate: { $gte: today, $lte: twoDaysFromNow }
+  }).populate('userId');
+  
+  for (const service of dueSoonServices) {
+    const daysUntilDue = Math.ceil((new Date(service.expectedReturnDate) - today) / (1000 * 60 * 60 * 24));
+    await Notification.create({
+      userId: service.userId._id,
+      title: '📅 Return Reminder',
+      message: `Your request for "${service.itemName}" is due ${daysUntilDue === 0 ? 'today' : `in ${daysUntilDue} day(s)`}.`,
+      type: 'info',
+      relatedType: 'service',
+      relatedId: service._id
+    });
+  }
+});
+```
+
+---
+
+## 🟡 NEW: Status Change Notifications
+
+**Purpose:** Notify users when their complaint or service request status changes.
+
+### Trigger on Status Update
+
+```javascript
+// In routes/complaints.js - updateStatus endpoint
+router.put('/:id/status', auth, staffOrAdmin, async (req, res) => {
+  const { status, note } = req.body;
+  const complaint = await Complaint.findByIdAndUpdate(
+    req.params.id,
+    { status, updatedAt: new Date() },
+    { new: true }
+  );
+  
+  // Create notification for status change
+  await Notification.create({
+    userId: complaint.userId,
+    title: `Complaint Status Updated`,
+    message: `Your complaint "${complaint.title}" is now ${status}.${note ? ` Note: ${note}` : ''}`,
+    type: status === 'resolved' ? 'success' : 'info',
+    relatedType: 'complaint',
+    relatedId: complaint._id
+  });
+  
+  res.json(complaint);
+});
+
+// Same pattern for services
+router.put('/:id/status', auth, staffOrAdmin, async (req, res) => {
+  const { status, note } = req.body;
+  const service = await Service.findByIdAndUpdate(
+    req.params.id,
+    { status, updatedAt: new Date() },
+    { new: true }
+  );
+  
+  await Notification.create({
+    userId: service.userId,
+    title: `Service Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+    message: `Your request for "${service.itemName}" has been ${status}.`,
+    type: status === 'approved' ? 'success' : status === 'rejected' ? 'error' : 'info',
+    relatedType: 'service',
+    relatedId: service._id
+  });
+  
+  res.json(service);
+});
+```
+
+---
+
 ## 🔴 CRITICAL: New Endpoints Required
 
 ### 1. Health Check Endpoint
