@@ -79,6 +79,8 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const { showToast } = useToast();
 
   // Debounced search
@@ -199,21 +201,35 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
   };
 
   // Export handlers
-  const handleExportCSV = () => {
-    const dataToExport =
-      bulkSelection.selectedCount > 0
-        ? bulkSelection.getSelectedItems()
-        : displayServices;
-    exportServices(dataToExport).toCSV();
-    showToast("Success", "Export started", "success");
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      const dataToExport =
+        bulkSelection.selectedCount > 0
+          ? bulkSelection.getSelectedItems()
+          : displayServices;
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
+      exportServices(dataToExport).toCSV();
+      showToast("Success", "Export completed", "success");
+    } catch (err) {
+      showToast("Error", "Failed to export data", "error");
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
-  const handleExportPDF = () => {
-    const dataToExport =
-      bulkSelection.selectedCount > 0
-        ? bulkSelection.getSelectedItems()
-        : displayServices;
-    exportServices(dataToExport).toPDF();
+  const handleExportPDF = async () => {
+    setExportingPDF(true);
+    try {
+      const dataToExport =
+        bulkSelection.selectedCount > 0
+          ? bulkSelection.getSelectedItems()
+          : displayServices;
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
+      exportServices(dataToExport).toPDF();
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   const filterServices = () => {
@@ -815,11 +831,23 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
               bulkSelection.selectedCount === 0 &&
               displayServices.length > 0 && (
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportCSV}
+                    disabled={exportingCSV || exportingPDF}
+                    isLoading={exportingCSV}
+                  >
                     <FileSpreadsheet className="w-4 h-4 mr-2" />
                     Export CSV
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportPDF}
+                    disabled={exportingCSV || exportingPDF}
+                    isLoading={exportingPDF}
+                  >
                     <Printer className="w-4 h-4 mr-2" />
                     Export PDF
                   </Button>

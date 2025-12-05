@@ -31,6 +31,8 @@ const AdminAuditLogs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const { showToast } = useToast();
 
   // Debounced search
@@ -74,13 +76,27 @@ const AdminAuditLogs = () => {
   const pagination = usePagination<AuditLog>(filteredLogs, { pageSize: 20 });
 
   // Export handlers
-  const handleExportCSV = () => {
-    exportAuditLogs(filteredLogs).toCSV();
-    showToast("Success", "Export started", "success");
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
+      exportAuditLogs(filteredLogs).toCSV();
+      showToast("Success", "Export completed", "success");
+    } catch (err) {
+      showToast("Error", "Failed to export data", "error");
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
-  const handleExportPDF = () => {
-    exportAuditLogs(filteredLogs).toPDF();
+  const handleExportPDF = async () => {
+    setExportingPDF(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
+      exportAuditLogs(filteredLogs).toPDF();
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   if (error && !loading) {
@@ -103,11 +119,23 @@ const AdminAuditLogs = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={exportingCSV || exportingPDF}
+            isLoading={exportingCSV}
+          >
             <FileSpreadsheet className="w-4 h-4 mr-1" />
             CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={exportingCSV || exportingPDF}
+            isLoading={exportingPDF}
+          >
             <Printer className="w-4 h-4 mr-1" />
             PDF
           </Button>

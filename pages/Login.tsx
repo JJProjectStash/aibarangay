@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Home,
   Mail,
@@ -7,11 +7,44 @@ import {
   Users,
   Eye,
   EyeOff,
+  Lock,
+  Clock,
 } from "lucide-react";
 import { Button, Card, CardContent, Label } from "../components/UI";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
 import { User as UserType } from "../types";
+
+// Lockout configuration
+const LOCKOUT_CONFIG = {
+  maxAttempts: 5,
+  lockoutDuration: 5 * 60 * 1000, // 5 minutes in milliseconds
+  storageKey: "login_attempts",
+};
+
+interface LoginAttemptData {
+  count: number;
+  firstAttempt: number;
+  lockoutUntil: number | null;
+}
+
+const getLoginAttempts = (): LoginAttemptData => {
+  try {
+    const stored = localStorage.getItem(LOCKOUT_CONFIG.storageKey);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {}
+  return { count: 0, firstAttempt: Date.now(), lockoutUntil: null };
+};
+
+const setLoginAttempts = (data: LoginAttemptData) => {
+  localStorage.setItem(LOCKOUT_CONFIG.storageKey, JSON.stringify(data));
+};
+
+const clearLoginAttempts = () => {
+  localStorage.removeItem(LOCKOUT_CONFIG.storageKey);
+};
 
 interface LoginProps {
   onLogin: (user: UserType) => void;
@@ -31,7 +64,84 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
     password?: boolean;
   }>({});
 
+  // Lockout state
+  const [isLockedOut, setIsLockedOut] = useState(false);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(0);
+
   const { showToast } = useToast();
+
+  // Check lockout status on mount and update countdown
+  useEffect(() => {
+    const checkLockout = () => {
+      const attempts = getLoginAttempts();
+
+      if (attempts.lockoutUntil && Date.now() < attempts.lockoutUntil) {
+        setIsLockedOut(true);
+        setLockoutRemaining(
+          Math.ceil((attempts.lockoutUntil - Date.now()) / 1000)
+        );
+        setAttemptCount(attempts.count);
+      } else if (attempts.lockoutUntil && Date.now() >= attempts.lockoutUntil) {
+        // Lockout expired, reset attempts
+        clearLoginAttempts();
+        setIsLockedOut(false);
+        setLockoutRemaining(0);
+        setAttemptCount(0);
+      } else {
+        setAttemptCount(attempts.count);
+      }
+    };
+
+    checkLockout();
+    const interval = setInterval(checkLockout, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle failed login attempt
+  const handleFailedAttempt = useCallback(() => {
+    const attempts = getLoginAttempts();
+    const newCount = attempts.count + 1;
+
+    if (newCount >= LOCKOUT_CONFIG.maxAttempts) {
+      // Lock the user out
+      const lockoutUntil = Date.now() + LOCKOUT_CONFIG.lockoutDuration;
+      setLoginAttempts({
+        count: newCount,
+        firstAttempt: attempts.firstAttempt,
+        lockoutUntil,
+      });
+      setIsLockedOut(true);
+      setLockoutRemaining(Math.ceil(LOCKOUT_CONFIG.lockoutDuration / 1000));
+      setAttemptCount(newCount);
+
+      showToast(
+        "Account Temporarily Locked",
+        `Too many failed attempts. Please try again in ${Math.ceil(
+          LOCKOUT_CONFIG.lockoutDuration / 60000
+        )} minutes.`,
+        "error"
+      );
+    } else {
+      setLoginAttempts({
+        count: newCount,
+        firstAttempt: attempts.firstAttempt || Date.now(),
+        lockoutUntil: null,
+      });
+      setAttemptCount(newCount);
+
+      const remainingAttempts = LOCKOUT_CONFIG.maxAttempts - newCount;
+      if (remainingAttempts <= 2) {
+        showToast(
+          "Warning",
+          `${remainingAttempts} attempt${
+            remainingAttempts === 1 ? "" : "s"
+          } remaining before lockout`,
+          "warning"
+        );
+      }
+    }
+  }, [showToast]);
 
   const validateEmail = (email: string): string => {
     const trimmed = email.trim();
@@ -86,6 +196,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Check if locked out
+    if (isLockedOut) {
+      showToast(
+        "Account Locked",
+        `Please wait ${formatTime(lockoutRemaining)} before trying again.`,
+        "error"
+      );
+      return;
+    }
+
     const trimmedEmail = email.trim().toLowerCase();
     const emailError = validateEmail(trimmedEmail);
     const passwordError = validatePassword(password);
@@ -107,6 +227,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
     try {
       const user = await api.login(trimmedEmail, password);
       if (user) {
+        // Clear login attempts on successful login
+        clearLoginAttempts();
+        setAttemptCount(0);
+
         showToast(
           "Welcome Back!",
           `Successfully logged in as ${user.firstName} ${user.lastName}`,
@@ -115,11 +239,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
         );
         setTimeout(() => onLogin(user), 500);
       } else {
+        handleFailedAttempt();
         const errorMsg = "Invalid email or password. Please try again.";
         setErrors({ email: errorMsg });
         showToast("Login Failed", errorMsg, "error");
       }
     } catch (err: any) {
+      handleFailedAttempt();
       const errorMsg =
         err?.message ||
         "Login failed. Please check your credentials and try again.";
@@ -128,6 +254,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Format remaining time as MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const fillDemoCreds = (role: string) => {
@@ -171,6 +304,46 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
 
         <Card className="border-0 shadow-2xl ring-1 ring-gray-900/5 backdrop-blur-sm bg-white/95">
           <CardContent className="p-8">
+            {/* Lockout Warning Banner */}
+            {isLockedOut && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-full">
+                    <Lock className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-red-800">
+                      Account Temporarily Locked
+                    </h4>
+                    <p className="text-sm text-red-600">
+                      Too many failed login attempts. Please try again in{" "}
+                      <span className="font-mono font-bold">
+                        {formatTime(lockoutRemaining)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="text-2xl font-mono font-bold text-red-700 bg-red-100 px-3 py-1 rounded-lg">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    {formatTime(lockoutRemaining)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Attempt Warning */}
+            {!isLockedOut &&
+              attemptCount > 0 &&
+              attemptCount < LOCKOUT_CONFIG.maxAttempts && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm text-amber-700">
+                    {LOCKOUT_CONFIG.maxAttempts - attemptCount} login attempt
+                    {LOCKOUT_CONFIG.maxAttempts - attemptCount === 1 ? "" : "s"}{" "}
+                    remaining
+                  </p>
+                </div>
+              )}
+
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700 font-medium">
@@ -193,7 +366,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
                           ? "border-red-500 focus:ring-red-200 focus:border-red-500"
                           : "border-gray-200"
                       }`}
-                      disabled={loading}
+                      disabled={loading || isLockedOut}
                       autoComplete="email"
                       maxLength={100}
                     />
@@ -240,7 +413,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
                           ? "border-red-500 focus:ring-red-200 focus:border-red-500"
                           : "border-gray-200"
                       }`}
-                      disabled={loading}
+                      disabled={loading || isLockedOut}
                       autoComplete="current-password"
                       maxLength={128}
                     />
@@ -270,15 +443,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, onNavigateToSignup }) => {
 
               <Button
                 type="submit"
-                className="w-full h-12 text-base font-bold shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                className={`w-full h-12 text-base font-bold shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ${
+                  isLockedOut ? "opacity-50 cursor-not-allowed" : ""
+                }`}
                 isLoading={loading}
                 disabled={
                   loading ||
+                  isLockedOut ||
                   (touched.email && !!errors.email) ||
                   (touched.password && !!errors.password)
                 }
               >
-                {loading ? "Signing In..." : "Sign In"}
+                {isLockedOut ? (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    Locked ({formatTime(lockoutRemaining)})
+                  </>
+                ) : loading ? (
+                  "Signing In..."
+                ) : (
+                  "Sign In"
+                )}
               </Button>
             </form>
 

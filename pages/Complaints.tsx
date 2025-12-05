@@ -81,6 +81,8 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
   const [commentText, setCommentText] = useState("");
   const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const { showToast } = useToast();
 
   // Debounced search for better performance
@@ -184,21 +186,35 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
   };
 
   // Export handlers
-  const handleExportCSV = () => {
-    const dataToExport =
-      bulkSelection.selectedCount > 0
-        ? bulkSelection.getSelectedItems()
-        : displayComplaints;
-    exportComplaints(dataToExport).toCSV();
-    showToast("Success", "Export started", "success");
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      const dataToExport =
+        bulkSelection.selectedCount > 0
+          ? bulkSelection.getSelectedItems()
+          : displayComplaints;
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
+      exportComplaints(dataToExport).toCSV();
+      showToast("Success", "Export completed", "success");
+    } catch (err) {
+      showToast("Error", "Failed to export data", "error");
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
-  const handleExportPDF = () => {
-    const dataToExport =
-      bulkSelection.selectedCount > 0
-        ? bulkSelection.getSelectedItems()
-        : displayComplaints;
-    exportComplaints(dataToExport).toPDF();
+  const handleExportPDF = async () => {
+    setExportingPDF(true);
+    try {
+      const dataToExport =
+        bulkSelection.selectedCount > 0
+          ? bulkSelection.getSelectedItems()
+          : displayComplaints;
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
+      exportComplaints(dataToExport).toPDF();
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   const filterComplaints = () => {
@@ -543,11 +559,23 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
         <div className="flex items-center gap-2">
           {isAdminOrStaff && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                disabled={exportingCSV || exportingPDF}
+                isLoading={exportingCSV}
+              >
                 <FileSpreadsheet className="w-4 h-4 mr-1" />
                 CSV
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExportPDF}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPDF}
+                disabled={exportingCSV || exportingPDF}
+                isLoading={exportingPDF}
+              >
                 <Printer className="w-4 h-4 mr-1" />
                 PDF
               </Button>
