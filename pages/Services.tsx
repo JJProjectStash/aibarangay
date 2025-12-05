@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Package,
   Plus,
@@ -13,6 +13,9 @@ import {
   Building2,
   Users,
   Edit,
+  Download,
+  FileSpreadsheet,
+  Printer,
 } from "lucide-react";
 import {
   Button,
@@ -26,11 +29,28 @@ import {
   Textarea,
   Badge,
   Modal,
+  Skeleton,
 } from "../components/UI";
 import { api } from "../services/api";
 import { ServiceRequest, User, RequestType } from "../types";
 import { useToast } from "../components/Toast";
 import { format } from "date-fns";
+import { Pagination } from "../components/Pagination";
+import { usePagination, useDebounce } from "../hooks/useAsync";
+import {
+  PageLoader,
+  EmptyState,
+  ErrorState,
+  StatCardSkeleton,
+  CardSkeleton,
+} from "../components/Loading";
+import {
+  useBulkSelection,
+  BulkCheckbox,
+  BulkActionBar,
+  BulkStatusModal,
+} from "../components/BulkActions";
+import { exportServices } from "../utils/export";
 
 interface ServicesProps {
   user: User;
@@ -55,7 +75,14 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     service: ServiceRequest | null;
   }>({ isOpen: false, service: null });
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const { showToast } = useToast();
+
+  // Debounced search
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const [formData, setFormData] = useState({
     requestType: "Equipment" as RequestType,
@@ -112,23 +139,89 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
 
   useEffect(() => {
     filterServices();
-  }, [services, searchQuery, statusFilter, typeFilter, requestTypeFilter]);
+  }, [services, debouncedSearch, statusFilter, typeFilter, requestTypeFilter]);
+
+  // Admin/Staff see all, regular users see only theirs
+  const displayServices = useMemo(() => {
+    return isAdminOrStaff
+      ? filteredServices
+      : filteredServices.filter((s) => s.userId === user.id);
+  }, [filteredServices, isAdminOrStaff, user.id]);
+
+  // Bulk selection - only for admin/staff
+  const bulkSelection = useBulkSelection(displayServices);
+
+  // Pagination
+  const pagination = usePagination<ServiceRequest>(displayServices, {
+    pageSize: 10,
+  });
 
   const fetchServices = async () => {
+    setFetchError(null);
     try {
       const data = await api.getServices(user);
       setServices(data);
     } catch (error) {
+      setFetchError("Failed to fetch service requests");
       showToast("Error", "Failed to fetch service requests", "error");
+    } finally {
+      setInitialLoading(false);
     }
+  };
+
+  // Bulk status update handler
+  const handleBulkStatusUpdate = async (status: string, note?: string) => {
+    setBulkLoading(true);
+    try {
+      const selectedItems = bulkSelection.getSelectedItems();
+      await Promise.all(
+        selectedItems.map((service) =>
+          api.updateServiceStatus(
+            service.id,
+            status as ServiceRequest["status"],
+            note
+          )
+        )
+      );
+      showToast(
+        "Success",
+        `Updated ${selectedItems.length} requests`,
+        "success"
+      );
+      bulkSelection.clearSelection();
+      setShowBulkStatusModal(false);
+      fetchServices();
+    } catch (error: any) {
+      showToast("Error", error.message || "Failed to update requests", "error");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  // Export handlers
+  const handleExportCSV = () => {
+    const dataToExport =
+      bulkSelection.selectedCount > 0
+        ? bulkSelection.getSelectedItems()
+        : displayServices;
+    exportServices(dataToExport).toCSV();
+    showToast("Success", "Export started", "success");
+  };
+
+  const handleExportPDF = () => {
+    const dataToExport =
+      bulkSelection.selectedCount > 0
+        ? bulkSelection.getSelectedItems()
+        : displayServices;
+    exportServices(dataToExport).toPDF();
   };
 
   const filterServices = () => {
     let filtered = [...services];
 
     // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const query = debouncedSearch.toLowerCase();
       filtered = filtered.filter(
         (s) =>
           s.itemName.toLowerCase().includes(query) ||
@@ -469,22 +562,18 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
     }
   };
 
-  // Admin/Staff see all services, regular users see only their own
-  const displayServices = isAdminOrStaff
-    ? filteredServices
-    : filteredServices.filter((s) => s.userId === user.id);
-
+  // myServices used for stats when user is not admin
   const myServices = filteredServices.filter((s) => s.userId === user.id);
 
   const stats = {
-    total: isAdminOrStaff ? filteredServices.length : myServices.length,
-    pending: (isAdminOrStaff ? filteredServices : myServices).filter(
+    total: isAdminOrStaff ? displayServices.length : myServices.length,
+    pending: (isAdminOrStaff ? displayServices : myServices).filter(
       (s) => s.status === "pending"
     ).length,
-    approved: (isAdminOrStaff ? filteredServices : myServices).filter(
+    approved: (isAdminOrStaff ? displayServices : myServices).filter(
       (s) => s.status === "approved"
     ).length,
-    borrowed: (isAdminOrStaff ? filteredServices : myServices).filter(
+    borrowed: (isAdminOrStaff ? displayServices : myServices).filter(
       (s) => s.status === "borrowed"
     ).length,
   };
@@ -695,101 +784,190 @@ const Services: React.FC<ServicesProps> = ({ user }) => {
             </CardContent>
           </Card>
         ) : (
-          displayServices.map((service) => (
-            <Card
-              key={service.id}
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setDetailModal({ isOpen: true, service: service })}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      {service.requestType === "Facility" ? (
-                        <Building2 className="w-5 h-5 text-blue-600" />
-                      ) : (
-                        <Package className="w-5 h-5 text-purple-600" />
-                      )}
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {service.itemName}
-                      </h3>
-                      <Badge variant="default">{service.itemType}</Badge>
-                      <Badge
-                        variant={
-                          service.requestType === "Facility"
-                            ? "info"
-                            : "primary"
-                        }
-                      >
-                        {service.requestType}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {service.purpose}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <Badge variant={getStatusColor(service.status)}>
-                      {getStatusIcon(service.status)}
-                      <span className="ml-1 capitalize">{service.status}</span>
-                    </Badge>
-                    {isAdminOrStaff && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setStatusModal({ isOpen: true, service });
-                          setStatusFormData({
-                            status: service.status,
-                            note: "",
-                          });
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
+          <>
+            {/* Admin Bulk Actions Bar */}
+            {isAdminOrStaff && bulkSelection.selectedCount > 0 && (
+              <BulkActionBar
+                selectedCount={bulkSelection.selectedCount}
+                onClear={bulkSelection.clearSelection}
+                actions={[
+                  {
+                    label: "Update Status",
+                    onClick: () => setShowBulkStatusModal(true),
+                    icon: <Edit className="w-4 h-4" />,
+                  },
+                  {
+                    label: "Export CSV",
+                    onClick: handleExportCSV,
+                    icon: <FileSpreadsheet className="w-4 h-4" />,
+                  },
+                  {
+                    label: "Export PDF",
+                    onClick: handleExportPDF,
+                    icon: <Printer className="w-4 h-4" />,
+                  },
+                ]}
+              />
+            )}
 
-                <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {format(new Date(service.borrowDate), "MMM d")} -{" "}
-                    {format(
-                      new Date(service.expectedReturnDate),
-                      "MMM d, yyyy"
+            {/* Export buttons when no selection */}
+            {isAdminOrStaff &&
+              bulkSelection.selectedCount === 0 &&
+              displayServices.length > 0 && (
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                    <Printer className="w-4 h-4 mr-2" />
+                    Export PDF
+                  </Button>
+                </div>
+              )}
+
+            {pagination.items.map((service) => (
+              <Card
+                key={service.id}
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() =>
+                  setDetailModal({ isOpen: true, service: service })
+                }
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      {isAdminOrStaff && (
+                        <BulkCheckbox
+                          checked={bulkSelection.isSelected(service.id)}
+                          onChange={() =>
+                            bulkSelection.toggleSelection(service.id)
+                          }
+                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          {service.requestType === "Facility" ? (
+                            <Building2 className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Package className="w-5 h-5 text-purple-600" />
+                          )}
+                          <h3 className="text-lg font-bold text-gray-900">
+                            {service.itemName}
+                          </h3>
+                          <Badge variant="default">{service.itemType}</Badge>
+                          <Badge
+                            variant={
+                              service.requestType === "Facility"
+                                ? "info"
+                                : "primary"
+                            }
+                          >
+                            {service.requestType}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {service.purpose}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <Badge variant={getStatusColor(service.status)}>
+                        {getStatusIcon(service.status)}
+                        <span className="ml-1 capitalize">
+                          {service.status}
+                        </span>
+                      </Badge>
+                      {isAdminOrStaff && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setStatusModal({ isOpen: true, service });
+                            setStatusFormData({
+                              status: service.status,
+                              note: "",
+                            });
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {format(new Date(service.borrowDate), "MMM d")} -{" "}
+                      {format(
+                        new Date(service.expectedReturnDate),
+                        "MMM d, yyyy"
+                      )}
+                    </span>
+                    {service.timeSlot && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {service.timeSlot}
+                      </span>
                     )}
-                  </span>
-                  {service.timeSlot && (
+                    {service.numberOfPeople && (
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {service.numberOfPeople} people
+                      </span>
+                    )}
                     <span className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
-                      {service.timeSlot}
+                      Requested{" "}
+                      {format(new Date(service.createdAt), "MMM d, yyyy")}
                     </span>
-                  )}
-                  {service.numberOfPeople && (
-                    <span className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      {service.numberOfPeople} people
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    Requested{" "}
-                    {format(new Date(service.createdAt), "MMM d, yyyy")}
-                  </span>
-                </div>
-
-                {service.status === "rejected" && service.rejectionReason && (
-                  <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                    <strong>Rejection Reason:</strong> {service.rejectionReason}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
+
+                  {service.status === "rejected" && service.rejectionReason && (
+                    <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                      <strong>Rejection Reason:</strong>{" "}
+                      {service.rejectionReason}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                pageSize={pagination.pageSize}
+                totalItems={pagination.totalItems}
+                onPageChange={pagination.setPage}
+                onPageSizeChange={pagination.setPageSize}
+                pageSizeOptions={[10, 25, 50]}
+              />
+            )}
+          </>
         )}
       </div>
+
+      {/* Bulk Status Modal for Admin */}
+      {isAdminOrStaff && (
+        <BulkStatusModal
+          isOpen={showBulkStatusModal}
+          onClose={() => setShowBulkStatusModal(false)}
+          selectedCount={bulkSelection.selectedCount}
+          onSubmit={handleBulkStatusUpdate}
+          isLoading={bulkLoading}
+          statusOptions={[
+            { value: "approved", label: "Approve" },
+            { value: "rejected", label: "Reject" },
+            { value: "borrowed", label: "Mark as Borrowed" },
+            { value: "returned", label: "Mark as Returned" },
+          ]}
+        />
+      )}
 
       {/* Create Service Modal */}
       <Modal

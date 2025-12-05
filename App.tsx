@@ -43,6 +43,7 @@ import { User, Notification, SiteSettings } from "./types";
 import { Button } from "./components/UI";
 import { ToastContainer, useToast } from "./components/Toast";
 import { api } from "./services/api";
+import ErrorBoundary, { PageErrorBoundary } from "./components/ErrorBoundary";
 
 type Page =
   | "landing"
@@ -714,17 +715,24 @@ export default function App() {
   }
 
   return (
-    <Layout
-      user={user}
-      setUser={setUser}
-      currentPage={currentPage}
-      setCurrentPage={setCurrentPage}
-      siteSettings={siteSettings}
-      unreadCount={unreadCount}
-      setUnreadCount={setUnreadCount}
-      recentNotifs={recentNotifs}
-    >
-      {renderPage()}
-    </Layout>
+    <ErrorBoundary onReset={() => setCurrentPage("dashboard")}>
+      <Layout
+        user={user}
+        setUser={setUser}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        siteSettings={siteSettings}
+        unreadCount={unreadCount}
+        setUnreadCount={setUnreadCount}
+        recentNotifs={recentNotifs}
+      >
+        <PageErrorBoundary
+          pageName={currentPage}
+          onNavigateHome={() => setCurrentPage("dashboard")}
+        >
+          {renderPage()}
+        </PageErrorBoundary>
+      </Layout>
+    </ErrorBoundary>
   );
 }

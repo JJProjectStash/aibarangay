@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   MessageSquare,
   Plus,
@@ -14,6 +14,9 @@ import {
   X,
   User as UserIcon,
   Edit,
+  Download,
+  FileSpreadsheet,
+  Printer,
 } from "lucide-react";
 import {
   Button,
@@ -28,11 +31,30 @@ import {
   Badge,
   Modal,
   FileUpload,
+  Skeleton,
 } from "../components/UI";
 import { api } from "../services/api";
 import { Complaint, User, Comment } from "../types";
 import { useToast } from "../components/Toast";
 import { format } from "date-fns";
+import { Pagination } from "../components/Pagination";
+import { usePagination, useDebounce } from "../hooks/useAsync";
+import {
+  PageLoader,
+  EmptyState,
+  ErrorState,
+  TableSkeleton,
+  CardSkeleton,
+  StatCardSkeleton,
+  LoadingOverlay,
+} from "../components/Loading";
+import {
+  useBulkSelection,
+  BulkCheckbox,
+  BulkActionBar,
+  BulkStatusModal,
+} from "../components/BulkActions";
+import { exportComplaints } from "../utils/export";
 
 interface ComplaintsProps {
   user: User;
@@ -54,8 +76,15 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
     complaint: Complaint | null;
   }>({ isOpen: false, complaint: null });
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [showBulkStatusModal, setShowBulkStatusModal] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const { showToast } = useToast();
+
+  // Debounced search for better performance
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -91,23 +120,93 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
 
   useEffect(() => {
     filterComplaints();
-  }, [complaints, searchQuery, statusFilter, categoryFilter]);
+  }, [complaints, debouncedSearch, statusFilter, categoryFilter]);
+
+  // Admin/Staff see all complaints, regular users see only their own
+  const displayComplaints = useMemo(() => {
+    return isAdminOrStaff
+      ? filteredComplaints
+      : filteredComplaints.filter((c) => c.userId === user.id);
+  }, [filteredComplaints, isAdminOrStaff, user.id]);
+
+  // Bulk selection - only for admin/staff
+  const bulkSelection = useBulkSelection(displayComplaints);
+
+  // Pagination
+  const pagination = usePagination<Complaint>(displayComplaints, {
+    pageSize: 10,
+  });
 
   const fetchComplaints = async () => {
+    setFetchError(null);
     try {
       const data = await api.getComplaints(user);
       setComplaints(data);
     } catch (error) {
+      setFetchError("Failed to fetch complaints");
       showToast("Error", "Failed to fetch complaints", "error");
+    } finally {
+      setInitialLoading(false);
     }
+  };
+
+  // Bulk status update handler
+  const handleBulkStatusUpdate = async (status: string, note?: string) => {
+    setBulkLoading(true);
+    try {
+      const selectedItems = bulkSelection.getSelectedItems();
+      await Promise.all(
+        selectedItems.map((complaint) =>
+          api.updateComplaintStatus(
+            complaint.id,
+            status as Complaint["status"],
+            note
+          )
+        )
+      );
+      showToast(
+        "Success",
+        `Updated ${selectedItems.length} complaints`,
+        "success"
+      );
+      bulkSelection.clearSelection();
+      setShowBulkStatusModal(false);
+      fetchComplaints();
+    } catch (error: any) {
+      showToast(
+        "Error",
+        error.message || "Failed to update complaints",
+        "error"
+      );
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  // Export handlers
+  const handleExportCSV = () => {
+    const dataToExport =
+      bulkSelection.selectedCount > 0
+        ? bulkSelection.getSelectedItems()
+        : displayComplaints;
+    exportComplaints(dataToExport).toCSV();
+    showToast("Success", "Export started", "success");
+  };
+
+  const handleExportPDF = () => {
+    const dataToExport =
+      bulkSelection.selectedCount > 0
+        ? bulkSelection.getSelectedItems()
+        : displayComplaints;
+    exportComplaints(dataToExport).toPDF();
   };
 
   const filterComplaints = () => {
     let filtered = [...complaints];
 
     // Search filter - dynamically search in title and description
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const query = debouncedSearch.toLowerCase();
       filtered = filtered.filter(
         (c) =>
           c.title.toLowerCase().includes(query) ||
@@ -380,23 +479,57 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
     validateField("attachments", newAttachments);
   };
 
-  // Admin/Staff see all complaints, regular users see only their own
-  const displayComplaints = isAdminOrStaff
-    ? filteredComplaints
-    : filteredComplaints.filter((c) => c.userId === user.id);
-
   const myComplaints = filteredComplaints.filter((c) => c.userId === user.id);
 
-  const stats = {
-    total: myComplaints.length,
-    pending: myComplaints.filter((c) => c.status === "pending").length,
-    inProgress: myComplaints.filter((c) => c.status === "in-progress").length,
-    resolved: myComplaints.filter((c) => c.status === "resolved").length,
-  };
+  const stats = useMemo(
+    () => ({
+      total: myComplaints.length,
+      pending: myComplaints.filter((c) => c.status === "pending").length,
+      inProgress: myComplaints.filter((c) => c.status === "in-progress").length,
+      resolved: myComplaints.filter((c) => c.status === "resolved").length,
+    }),
+    [myComplaints]
+  );
+
+  // Show initial loading state
+  if (initialLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <Skeleton className="h-10 w-36 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <StatCardSkeleton key={i} />
+          ))}
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (fetchError) {
+    return (
+      <ErrorState
+        title="Failed to load complaints"
+        message={fetchError}
+        onRetry={fetchComplaints}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Complaints & Reports
@@ -407,10 +540,24 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
               : "Report issues and track their resolution"}
           </p>
         </div>
-        <Button onClick={() => setCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          File Complaint
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdminOrStaff && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <FileSpreadsheet className="w-4 h-4 mr-1" />
+                CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                <Printer className="w-4 h-4 mr-1" />
+                PDF
+              </Button>
+            </div>
+          )}
+          <Button onClick={() => setCreateModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            File Complaint
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -579,96 +726,196 @@ const Complaints: React.FC<ComplaintsProps> = ({ user }) => {
             </CardContent>
           </Card>
         ) : (
-          displayComplaints.map((complaint) => (
-            <Card
-              key={complaint.id}
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() =>
-                setDetailModal({ isOpen: true, complaint: complaint })
-              }
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {complaint.title}
-                      </h3>
-                      <Badge variant={getPriorityColor(complaint.priority)}>
-                        {complaint.priority}
-                      </Badge>
-                      {isAdminOrStaff && complaint.user && (
-                        <Badge
-                          variant="default"
-                          className="flex items-center gap-1"
-                        >
-                          <UserIcon className="w-3 h-3" />
-                          {typeof complaint.user === "object"
-                            ? `${complaint.user.firstName} ${complaint.user.lastName}`
-                            : "User"}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {complaint.description}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <Badge variant={getStatusColor(complaint.status)}>
-                      {getStatusIcon(complaint.status)}
-                      <span className="ml-1 capitalize">
-                        {complaint.status.replace("-", " ")}
-                      </span>
-                    </Badge>
-                    {isAdminOrStaff && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setStatusModal({ isOpen: true, complaint });
-                          setStatusFormData({
-                            status: complaint.status,
-                            note: "",
-                          });
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
+          <>
+            {/* Select All for Admin */}
+            {isAdminOrStaff && pagination.items.length > 0 && (
+              <div className="flex items-center gap-3 px-2">
+                <BulkCheckbox
+                  checked={bulkSelection.isAllSelected}
+                  indeterminate={bulkSelection.isSomeSelected}
+                  onChange={bulkSelection.toggleAll}
+                />
+                <span className="text-sm text-gray-600">
+                  {bulkSelection.selectedCount > 0
+                    ? `${bulkSelection.selectedCount} selected`
+                    : "Select all"}
+                </span>
+              </div>
+            )}
 
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-4 text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="w-4 h-4" />
-                      {complaint.category}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {format(new Date(complaint.createdAt), "MMM d, yyyy")}
-                    </span>
-                    {complaint.attachments &&
-                      complaint.attachments.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Paperclip className="w-4 h-4" />
-                          {complaint.attachments.length}
-                        </span>
-                      )}
+            {pagination.items.map((complaint) => (
+              <Card
+                key={complaint.id}
+                className={`hover:shadow-md transition-shadow cursor-pointer ${
+                  bulkSelection.isSelected(complaint.id)
+                    ? "ring-2 ring-primary-500 bg-primary-50/50"
+                    : ""
+                }`}
+                onClick={() =>
+                  setDetailModal({ isOpen: true, complaint: complaint })
+                }
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    {isAdminOrStaff && (
+                      <div
+                        className="pt-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <BulkCheckbox
+                          checked={bulkSelection.isSelected(complaint.id)}
+                          onChange={() =>
+                            bulkSelection.toggleSelection(complaint.id)
+                          }
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-bold text-gray-900">
+                              {complaint.title}
+                            </h3>
+                            <Badge
+                              variant={getPriorityColor(complaint.priority)}
+                            >
+                              {complaint.priority}
+                            </Badge>
+                            {isAdminOrStaff && complaint.user && (
+                              <Badge
+                                variant="default"
+                                className="flex items-center gap-1"
+                              >
+                                <UserIcon className="w-3 h-3" />
+                                {typeof complaint.user === "object"
+                                  ? `${complaint.user.firstName} ${complaint.user.lastName}`
+                                  : "User"}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {complaint.description}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Badge variant={getStatusColor(complaint.status)}>
+                            {getStatusIcon(complaint.status)}
+                            <span className="ml-1 capitalize">
+                              {complaint.status.replace("-", " ")}
+                            </span>
+                          </Badge>
+                          {isAdminOrStaff && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStatusModal({ isOpen: true, complaint });
+                                setStatusFormData({
+                                  status: complaint.status,
+                                  note: "",
+                                });
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-4 text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="w-4 h-4" />
+                            {complaint.category}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {format(
+                              new Date(complaint.createdAt),
+                              "MMM d, yyyy"
+                            )}
+                          </span>
+                          {complaint.attachments &&
+                            complaint.attachments.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Paperclip className="w-4 h-4" />
+                                {complaint.attachments.length}
+                              </span>
+                            )}
+                        </div>
+                        {complaint.comments &&
+                          complaint.comments.length > 0 && (
+                            <span className="text-primary-600 font-medium">
+                              {complaint.comments.length} comment
+                              {complaint.comments.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                      </div>
+                    </div>
                   </div>
-                  {complaint.comments && complaint.comments.length > 0 && (
-                    <span className="text-primary-600 font-medium">
-                      {complaint.comments.length} comment
-                      {complaint.comments.length !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                pageSize={pagination.pageSize}
+                onPageChange={pagination.setPage}
+                onPageSizeChange={pagination.setPageSize}
+              />
+            )}
+          </>
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      {isAdminOrStaff && (
+        <BulkActionBar
+          selectedCount={bulkSelection.selectedCount}
+          totalCount={displayComplaints.length}
+          onClearSelection={bulkSelection.clearSelection}
+          onSelectAll={bulkSelection.selectAll}
+          isLoading={bulkLoading}
+          actions={[
+            {
+              id: "update-status",
+              label: "Update Status",
+              icon: <Edit className="w-4 h-4" />,
+              variant: "primary",
+              onClick: () => setShowBulkStatusModal(true),
+            },
+            {
+              id: "export",
+              label: "Export Selected",
+              icon: <Download className="w-4 h-4" />,
+              variant: "secondary",
+              onClick: handleExportCSV,
+            },
+          ]}
+        />
+      )}
+
+      {/* Bulk Status Update Modal */}
+      <BulkStatusModal
+        isOpen={showBulkStatusModal}
+        onClose={() => setShowBulkStatusModal(false)}
+        onConfirm={handleBulkStatusUpdate}
+        selectedCount={bulkSelection.selectedCount}
+        statusOptions={[
+          { value: "pending", label: "Pending" },
+          { value: "in-progress", label: "In Progress" },
+          { value: "resolved", label: "Resolved" },
+          { value: "closed", label: "Closed" },
+        ]}
+        title="Bulk Update Complaint Status"
+        isLoading={bulkLoading}
+      />
 
       {/* Create Complaint Modal */}
       <Modal
