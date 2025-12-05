@@ -442,72 +442,182 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-4 relative">
+            {/* Enhanced Notification Bell */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowNotifDropdown(!showNotifDropdown);
               }}
-              className={`relative p-2 rounded-full transition-colors ${
+              className={`relative p-2 rounded-full transition-all duration-200 ${
                 showNotifDropdown
-                  ? "bg-primary-50 text-primary-600"
+                  ? "bg-primary-100 text-primary-600 scale-105"
+                  : unreadCount > 0
+                  ? "text-primary-600 hover:bg-primary-50"
                   : "text-gray-500 hover:bg-gray-100"
               }`}
             >
-              <Bell size={20} />
+              <Bell size={20} className={unreadCount > 0 ? "animate-bounce-slow" : ""} />
               {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                <span className="absolute -top-1 -right-1 flex items-center justify-center">
+                  <span className="animate-ping absolute inline-flex h-5 w-5 rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 </span>
               )}
             </button>
 
-            {/* Notification Popover */}
+            {/* Enhanced Notification Popover */}
             {showNotifDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 z-50 animate-in fade-in slide-in-from-top-2">
-                <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-                  <span className="font-bold text-sm text-gray-900">
-                    Notifications
-                  </span>
-                  <span
-                    className="text-xs text-primary-600 cursor-pointer"
-                    onClick={() => {
-                      setCurrentPage("notifications");
-                      setUnreadCount(0);
-                    }}
-                  >
-                    View All
-                  </span>
+              <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-primary-50 to-blue-50">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Bell size={18} className="text-primary-600" />
+                      <span className="font-bold text-gray-900">
+                        Notifications
+                      </span>
+                      {unreadCount > 0 && (
+                        <span className="bg-primary-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium hover:underline"
+                      onClick={() => {
+                        setCurrentPage("notifications");
+                        setShowNotifDropdown(false);
+                      }}
+                    >
+                      View All →
+                    </button>
+                  </div>
                 </div>
-                <div className="max-h-64 overflow-y-auto">
+
+                {/* Notification List */}
+                <div className="max-h-80 overflow-y-auto">
                   {recentNotifs.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500 text-sm">
-                      No new notifications
+                    <div className="p-8 text-center">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Bell className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 text-sm font-medium">No new notifications</p>
+                      <p className="text-gray-400 text-xs mt-1">You're all caught up!</p>
                     </div>
                   ) : (
-                    recentNotifs.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`p-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors ${
-                          !n.isRead ? "bg-primary-50/30" : ""
-                        }`}
-                      >
-                        <p className="text-sm font-medium text-gray-900">
-                          {n.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                          {n.message}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-1 text-right">
-                          {new Date(n.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    ))
+                    recentNotifs.map((n, index) => {
+                      // Determine navigation based on notification content
+                      const getNavPage = (): string | null => {
+                        if (n.relatedType) {
+                          switch (n.relatedType) {
+                            case "complaint": return "complaints";
+                            case "service": return "services";
+                            case "event": return "events";
+                            case "announcement": return "announcements";
+                          }
+                        }
+                        const text = (n.title + n.message).toLowerCase();
+                        if (text.includes("complaint")) return "complaints";
+                        if (text.includes("service") || text.includes("request")) return "services";
+                        if (text.includes("event")) return "events";
+                        return null;
+                      };
+                      
+                      const navPage = getNavPage();
+                      
+                      // Get icon based on type
+                      const getTypeIcon = () => {
+                        switch (n.type) {
+                          case "success":
+                            return <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                              <div className="w-3 h-3 bg-emerald-500 rounded-full" />
+                            </div>;
+                          case "warning":
+                            return <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                              <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                            </div>;
+                          case "error":
+                            return <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                              <div className="w-3 h-3 bg-rose-500 rounded-full" />
+                            </div>;
+                          default:
+                            return <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                            </div>;
+                        }
+                      };
+                      
+                      // Relative time
+                      const getRelativeTime = () => {
+                        const date = new Date(n.createdAt);
+                        const now = new Date();
+                        const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+                        if (diff < 60) return "Just now";
+                        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                        return `${Math.floor(diff / 86400)}d ago`;
+                      };
+
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            if (navPage) {
+                              setCurrentPage(navPage as Page);
+                              setShowNotifDropdown(false);
+                            }
+                          }}
+                          className={`p-3 border-b border-gray-50 last:border-0 transition-all ${
+                            navPage ? "cursor-pointer hover:bg-gray-50" : ""
+                          } ${!n.isRead ? "bg-primary-50/40" : ""}`}
+                          style={{ animationDelay: `${index * 0.05}s` }}
+                        >
+                          <div className="flex gap-3">
+                            {getTypeIcon()}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className={`text-sm font-medium leading-tight ${!n.isRead ? "text-gray-900" : "text-gray-700"}`}>
+                                  {n.title}
+                                  {!n.isRead && (
+                                    <span className="inline-block w-1.5 h-1.5 bg-primary-500 rounded-full ml-1.5 animate-pulse" />
+                                  )}
+                                </p>
+                                <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">
+                                  {getRelativeTime()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                                {n.message}
+                              </p>
+                              {navPage && (
+                                <p className="text-[10px] text-primary-500 mt-1 font-medium">
+                                  Click to view →
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
+
+                {/* Footer */}
+                {recentNotifs.length > 0 && (
+                  <div className="p-3 border-t border-gray-100 bg-gray-50">
+                    <button
+                      onClick={() => {
+                        setCurrentPage("notifications");
+                        setShowNotifDropdown(false);
+                      }}
+                      className="w-full text-center text-sm text-primary-600 hover:text-primary-700 font-medium py-1 hover:bg-primary-50 rounded-lg transition-colors"
+                    >
+                      See all notifications
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
