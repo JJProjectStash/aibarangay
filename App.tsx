@@ -175,6 +175,13 @@ const Layout: React.FC<LayoutProps> = ({
           >
             Announcements
           </NavButton>
+          <NavButton
+            active={currentPage === "news"}
+            onClick={() => setCurrentPage("news")}
+            icon={<Newspaper size={20} />}
+          >
+            Community News
+          </NavButton>
 
           {(user?.role === "admin" || user?.role === "staff") && (
             <>
@@ -347,6 +354,16 @@ const Layout: React.FC<LayoutProps> = ({
                 icon={<Calendar size={20} />}
               >
                 Events
+              </NavButton>
+              <NavButton
+                active={currentPage === "news"}
+                onClick={() => {
+                  setCurrentPage("news");
+                  setIsMobileMenuOpen(false);
+                }}
+                icon={<Newspaper size={20} />}
+              >
+                Community News
               </NavButton>
               <NavButton
                 active={currentPage === "profile"}
@@ -771,6 +788,8 @@ export default function App() {
         return <Profile user={user!} onUpdate={setUser} />;
       case "help":
         return <Help />;
+      case "news":
+        return <NewsPage onBack={() => setCurrentPage("dashboard")} />;
 
       // Admin Routes
       case "admin-users":

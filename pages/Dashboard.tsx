@@ -12,6 +12,8 @@ import {
   MessageSquarePlus,
   ArrowRight,
   Megaphone,
+  Newspaper,
+  ChevronRight,
 } from "lucide-react";
 import {
   BarChart,
@@ -36,7 +38,7 @@ import {
 } from "../components/UI";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
-import { User, Announcement } from "../types";
+import { User, Announcement, NewsItem } from "../types";
 
 interface DashboardProps {
   user: User;
@@ -52,6 +54,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
     useState<Announcement | null>(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
+
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  // Format today's date
+  const getTodayDate = () => {
+    return new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,6 +84,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
           const announcements = await api.getAnnouncements();
           const pinned = announcements.find((a) => a.isPinned && a.isPublished);
           setLatestAnnouncement(pinned || announcements[0] || null);
+          
+          // Fetch latest news for residents
+          const newsData = await api.getNews();
+          setLatestNews(newsData.slice(0, 3));
         }
 
         // Fetch analytics data for admin/staff
@@ -178,12 +203,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back, {user.firstName}!
+            {getGreeting()}, {user.firstName}!
           </h1>
           <p className="text-gray-500">
+            {getTodayDate()}
             {user.role === "resident"
-              ? "Here is the status of your recent activities."
-              : "Overview of barangay operations and performance."}
+              ? " • Here's the status of your recent activities."
+              : " • Overview of barangay operations and performance."}
           </p>
         </div>
         {(user.role === "admin" || user.role === "staff") && (
@@ -313,6 +339,75 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
               </Card>
             ))}
       </div>
+      )}
+
+      {/* Community News Widget - Only for Residents */}
+      {user.role === "resident" && (
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="flex items-center gap-2">
+              <Newspaper className="w-5 h-5 text-primary-600" />
+              <CardTitle className="text-lg">Community News</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onNavigate?.("news")}
+              className="text-primary-600 hover:text-primary-700"
+            >
+              View All <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="grid md:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="h-32 w-full rounded-lg" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : latestNews.length > 0 ? (
+              <div className="grid md:grid-cols-3 gap-4">
+                {latestNews.map((news) => (
+                  <div
+                    key={news.id}
+                    onClick={() => onNavigate?.("news")}
+                    className="group cursor-pointer rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:border-primary-200 transition-all"
+                  >
+                    <div className="aspect-video relative overflow-hidden bg-gray-100">
+                      <img
+                        src={news.imageUrl}
+                        alt={news.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <span className="absolute bottom-2 left-2 text-white text-xs font-medium bg-primary-600/90 px-2 py-0.5 rounded-full">
+                        {new Date(news.publishedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="p-3">
+                      <h4 className="font-semibold text-gray-900 line-clamp-2 text-sm group-hover:text-primary-600 transition-colors">
+                        {news.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                        {news.summary}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Newspaper className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">No news articles yet.</p>
+                <p className="text-gray-400 text-xs mt-1">Check back later for updates!</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Quick Actions Widget - Admin/Staff */}
