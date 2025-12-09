@@ -900,8 +900,11 @@ class ApiService {
   }
 
   // Public site settings for unauthenticated UI
-  async getPublicSiteSettings(): Promise<SiteSettings> {
-    const data = await apiRequest("/public/settings", { skipAuth: true });
+  async getPublicSiteSettings(forceRefresh = false): Promise<SiteSettings> {
+    const data = await apiRequest("/public/settings", { 
+      skipAuth: true,
+      skipDedup: forceRefresh, // Skip cache when forcing refresh
+    });
     return {
       id: data._id,
       barangayName: data.barangayName,

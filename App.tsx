@@ -274,6 +274,7 @@ const Layout: React.FC<LayoutProps> = ({
             variant="ghost"
             className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"
             onClick={() => {
+              api.logout(); // Clear tokens from localStorage
               setUser(null);
               setCurrentPage("landing");
             }}
@@ -435,7 +436,11 @@ const Layout: React.FC<LayoutProps> = ({
             <Button
               variant="outline"
               className="w-full mt-4"
-              onClick={() => setUser(null)}
+              onClick={() => {
+                api.logout(); // Clear tokens from localStorage
+                setUser(null);
+                setCurrentPage("landing");
+              }}
             >
               Sign Out
             </Button>
@@ -710,7 +715,7 @@ export default function App() {
   // Refresh site settings when admin config is updated
   const refreshSiteSettings = async () => {
     try {
-      const settings = await api.getPublicSiteSettings();
+      const settings = await api.getPublicSiteSettings(true); // Force refresh, skip cache
       setSiteSettings(settings);
     } catch (err) {
       console.warn("Could not refresh site settings:", err);
